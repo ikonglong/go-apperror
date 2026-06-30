@@ -16,7 +16,7 @@ func TestCodeMapperHasMappingFor(t *testing.T) {
 		}
 	}
 	for _, c := range []apperror.Code{
-		apperror.CodeOK, apperror.CodeOpCancelled, apperror.CodeUnknownError,
+		apperror.CodeOK, apperror.CodeCancelled, apperror.CodeUnknown,
 	} {
 		if cm.HasMappingFor(c) {
 			t.Errorf("did not expect mapping for %s", c)
@@ -39,7 +39,7 @@ func TestCodeMapperCaseCodeSegmentFor(t *testing.T) {
 		}
 	}
 
-	for _, c := range []apperror.Code{apperror.CodeOK, apperror.CodeOpCancelled} {
+	for _, c := range []apperror.Code{apperror.CodeOK, apperror.CodeCancelled} {
 		if _, ok := cm.CaseCodeSegmentFor(c); ok {
 			t.Errorf("CaseCodeSegmentFor(%s) should be missing", c)
 		}
@@ -75,9 +75,9 @@ func TestCodeMapperMappings(t *testing.T) {
 		apperror.CodePermissionDenied:   MustNew(201, 250),
 		apperror.CodeTooManyRequests:    MustNew(251, 300),
 		apperror.CodeFailedPrecondition: MustNew(301, 350),
-		apperror.CodeOpConflict:         MustNew(351, 400),
+		apperror.CodeConflict:           MustNew(351, 400),
 		apperror.CodeOutOfRange:         MustNew(401, 450),
-		apperror.CodeInternalError:      MustNew(451, 500),
+		apperror.CodeInternal:           MustNew(451, 500),
 		apperror.CodeIllegalState:       MustNew(501, 550),
 	}
 	for c, want := range cases {

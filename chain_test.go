@@ -23,7 +23,7 @@ func TestFlatMessage_SingleAppError(t *testing.T) {
 
 func TestFlatMessage_AllAppErrorChain(t *testing.T) {
 	inner := NewIllegalState("datastore.read", WithMessage("datastore corrupt"))
-	mid := NewInternalError("repo.load", WithMessage("repo load failed"), WithCause(inner))
+	mid := NewInternal("repo.load", WithMessage("repo load failed"), WithCause(inner))
 	top := NewUnavailable("user.lookup", WithMessage("user-service degraded"), WithCause(mid))
 
 	want := "user-service degraded -> repo load failed -> datastore corrupt"
@@ -82,7 +82,7 @@ func TestFlatMessage_AppErrorWrapsRemoteError(t *testing.T) {
 		Response:   &Response{StatusCode: 503},
 		RetryAfter: 30 * time.Second,
 	}
-	top := NewInternalError("user.lookup", WithMessage("user lookup failed"), WithCause(r))
+	top := NewInternal("user.lookup", WithMessage("user lookup failed"), WithCause(r))
 
 	want := "user lookup failed -> " + r.Error()
 	if got := FlatMessage(top); got != want {
@@ -139,7 +139,7 @@ func TestFlatMessage_RemoteErrorNilCanonical_NoPanic(t *testing.T) {
 //
 // // TestCanonical_AppErrorWrapsRemoteError_OuterWins documents the wire-mapping
 // // semantics: the outermost AppError is the canonical view. Wrapping a
-// // RemoteError(canonical=Unavailable) with NewInternalError means the caller
+// // RemoteError(canonical=Unavailable) with NewInternal means the caller
 // // reclassified this failure, and Canonical respects that.
 // func TestCanonical_AppErrorWrapsRemoteError_OuterWins(t *testing.T) {
 // 	r := &RemoteError{
@@ -148,13 +148,13 @@ func TestFlatMessage_RemoteErrorNilCanonical_NoPanic(t *testing.T) {
 // 		Operation: "op",
 // 		Response:  &Response{StatusCode: 503},
 // 	}
-// 	outer := NewInternalError("test.evt", WithMessage("rephrased"), WithCause(r))
+// 	outer := NewInternal("test.evt", WithMessage("rephrased"), WithCause(r))
 // 	got := Canonical(outer)
 // 	if got != outer {
 // 		t.Errorf("Canonical = %v, want outer AppError", got)
 // 	}
-// 	if got.Code() != CodeInternalError {
-// 		t.Errorf("Canonical.Code() = %v, want CodeInternalError", got.Code())
+// 	if got.Code() != CodeInternal {
+// 		t.Errorf("Canonical.Code() = %v, want CodeInternal", got.Code())
 // 	}
 // }
 //

@@ -1,25 +1,25 @@
 package apperror
 
 var codeToHTTPStatus = map[Code]HTTPStatus{
-	CodeOK:                   StatusOK,
-	CodeIllegalInput:         StatusBadRequest,
-	CodeFailedPrecondition:   StatusBadRequest,
-	CodeOutOfRange:           StatusBadRequest,
-	CodeUnauthenticated:      StatusUnauthorized,
-	CodePermissionDenied:     StatusForbidden,
-	CodeNotFound:             StatusNotFound,
-	CodeOpConflict:           StatusConflict,
-	CodeAlreadyExists:        StatusConflict,
-	CodeTooManyRequests:      StatusTooManyRequests,
-	CodeOpCancelled:          StatusClientClosedRequest,
-	CodeIllegalState:         StatusInternalServerError,
-	CodeUnknownError:         StatusInternalServerError,
-	CodeInternalError:        StatusInternalServerError,
-	CodeUnimplemented:        StatusNotImplemented,
-	CodeUnavailable:          StatusServiceUnavailable,
-	CodeTimeout:              StatusTimeout,
-	CodeAuthorizationExpired: StatusUnauthorized,
-	CodeIllegalArg:           StatusInternalServerError,
+	CodeOK:                 StatusOK,
+	CodeIllegalInput:       StatusBadRequest,
+	CodeFailedPrecondition: StatusBadRequest,
+	CodeOutOfRange:         StatusBadRequest,
+	CodeUnauthenticated:    StatusUnauthorized,
+	CodePermissionDenied:   StatusForbidden,
+	CodeNotFound:           StatusNotFound,
+	CodeConflict:           StatusConflict,
+	CodeAlreadyExists:      StatusConflict,
+	CodeTooManyRequests:    StatusTooManyRequests,
+	CodeCancelled:          StatusClientClosedRequest,
+	CodeIllegalState:       StatusInternalServerError,
+	CodeUnknown:            StatusInternalServerError,
+	CodeInternal:           StatusInternalServerError,
+	CodeUnimplemented:      StatusNotImplemented,
+	CodeUnavailable:        StatusServiceUnavailable,
+	CodeTimeout:            StatusTimeout,
+	CodeUnauthorized:       StatusUnauthorized,
+	CodeIllegalArg:         StatusInternalServerError,
 }
 
 // HTTPStatusFor returns the HTTPStatus that the given Code maps to.
@@ -37,18 +37,18 @@ var httpStatusToCode = map[HTTPStatus]Code{
 	StatusNotFound:            CodeNotFound,
 	StatusConflict:            CodeAlreadyExists,
 	StatusTooManyRequests:     CodeTooManyRequests,
-	StatusClientClosedRequest: CodeOpCancelled,
-	StatusInternalServerError: CodeInternalError,
+	StatusClientClosedRequest: CodeCancelled,
+	StatusInternalServerError: CodeInternal,
 	StatusNotImplemented:      CodeUnimplemented,
 	StatusServiceUnavailable:  CodeUnavailable,
 	StatusTimeout:             CodeTimeout,
 }
 
 // OpCodeFor returns the operation status Code that the given HTTP status code
-// maps to. Unknown statuses map to CodeUnknownError.
+// maps to. Unknown statuses map to CodeUnknown.
 func OpCodeFor(httpStatus int) Code {
 	if c, ok := httpStatusToCode[HTTPStatus(httpStatus)]; ok {
 		return c
 	}
-	return CodeUnknownError
+	return CodeUnknown
 }

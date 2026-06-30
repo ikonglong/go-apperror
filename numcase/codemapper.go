@@ -31,9 +31,9 @@ type CodeMapper interface {
 	PermissionDenied() NumRange
 	TooManyRequests() NumRange
 	FailedPrecondition() NumRange
-	OpConflict() NumRange
+	Conflict() NumRange
 	OutOfRange() NumRange
-	InternalError() NumRange
+	Internal() NumRange
 	IllegalState() NumRange
 }
 
@@ -47,9 +47,9 @@ type MapperConfig struct {
 	PermissionDenied   NumRange
 	TooManyRequests    NumRange
 	FailedPrecondition NumRange
-	OpConflict         NumRange
+	Conflict           NumRange
 	OutOfRange         NumRange
-	InternalError      NumRange
+	Internal           NumRange
 	IllegalState       NumRange
 }
 
@@ -70,9 +70,9 @@ func NewBaseCodeMapper(cfg MapperConfig) *BaseCodeMapper {
 		apperror.CodePermissionDenied:   cfg.PermissionDenied,
 		apperror.CodeTooManyRequests:    cfg.TooManyRequests,
 		apperror.CodeFailedPrecondition: cfg.FailedPrecondition,
-		apperror.CodeOpConflict:         cfg.OpConflict,
+		apperror.CodeConflict:           cfg.Conflict,
 		apperror.CodeOutOfRange:         cfg.OutOfRange,
-		apperror.CodeInternalError:      cfg.InternalError,
+		apperror.CodeInternal:           cfg.Internal,
 		apperror.CodeIllegalState:       cfg.IllegalState,
 	}
 	return m
@@ -115,9 +115,9 @@ func (m *BaseCodeMapper) AlreadyExists() NumRange      { return m.cfg.AlreadyExi
 func (m *BaseCodeMapper) PermissionDenied() NumRange   { return m.cfg.PermissionDenied }
 func (m *BaseCodeMapper) TooManyRequests() NumRange    { return m.cfg.TooManyRequests }
 func (m *BaseCodeMapper) FailedPrecondition() NumRange { return m.cfg.FailedPrecondition }
-func (m *BaseCodeMapper) OpConflict() NumRange         { return m.cfg.OpConflict }
+func (m *BaseCodeMapper) Conflict() NumRange           { return m.cfg.Conflict }
 func (m *BaseCodeMapper) OutOfRange() NumRange         { return m.cfg.OutOfRange }
-func (m *BaseCodeMapper) InternalError() NumRange      { return m.cfg.InternalError }
+func (m *BaseCodeMapper) Internal() NumRange           { return m.cfg.Internal }
 func (m *BaseCodeMapper) IllegalState() NumRange       { return m.cfg.IllegalState }
 
 // String renders a table summarising the mappings, useful for diagnostics.
@@ -164,9 +164,9 @@ func NewDefaultCodeMapper() *BaseCodeMapper {
 		PermissionDenied:   MustNew(201, 250),
 		TooManyRequests:    MustNew(251, 300),
 		FailedPrecondition: MustNew(301, 350),
-		OpConflict:         MustNew(351, 400),
+		Conflict:           MustNew(351, 400),
 		OutOfRange:         MustNew(401, 450),
-		InternalError:      MustNew(451, 500),
+		Internal:           MustNew(451, 500),
 		IllegalState:       MustNew(501, 550),
 	})
 }

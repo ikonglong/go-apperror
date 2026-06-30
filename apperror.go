@@ -21,7 +21,7 @@ import (
 // # Construction
 //
 // Construct an AppError via one of the per-Code factory functions
-// (NewNotFound, NewInternalError, etc.). The package intentionally does
+// (NewNotFound, NewInternal, etc.). The package intentionally does
 // not expose a generic "New(code, event, ...)" constructor: every
 // AppError must be created with a Code from this package's standardized
 // taxonomy, and a caller picks the Code by picking the corresponding
@@ -147,7 +147,7 @@ func (e *AppError) Unwrap() error { return e.cause }
 // structured log field.
 //
 // The capture point is where the error was first classified into this
-// package's taxonomy — i.e. where a factory (NewNotFound, NewInternalError,
+// package's taxonomy — i.e. where a factory (NewNotFound, NewInternal,
 // ...) was called. AddNote does not create a new error, so it leaves this
 // origin stack intact.
 func (e *AppError) StackTrace() StackTrace { return e.stack }
@@ -213,14 +213,14 @@ func (e *AppError) String() string {
 //
 // Order below mirrors the order of Code constants declared in code.go.
 
-// NewOpCancelled creates an AppError for a cancelled operation. (Code 1)
-func NewOpCancelled(event string, opts ...Option) *AppError {
-	return newAppError(CodeOpCancelled, event, opts...)
+// NewCancelled creates an AppError for a cancelled operation. (Code 1)
+func NewCancelled(event string, opts ...Option) *AppError {
+	return newAppError(CodeCancelled, event, opts...)
 }
 
-// NewUnknownError creates an AppError for an unknown error. (Code 2)
-func NewUnknownError(event string, opts ...Option) *AppError {
-	return newAppError(CodeUnknownError, event, opts...)
+// NewUnknown creates an AppError for an unknown error. (Code 2)
+func NewUnknown(event string, opts ...Option) *AppError {
+	return newAppError(CodeUnknown, event, opts...)
 }
 
 // NewIllegalInput creates an AppError for illegal client input. (Code 3)
@@ -258,9 +258,9 @@ func NewFailedPrecondition(event string, opts ...Option) *AppError {
 	return newAppError(CodeFailedPrecondition, event, opts...)
 }
 
-// NewOpConflict creates an AppError for a concurrent-operation conflict. (Code 10)
-func NewOpConflict(event string, opts ...Option) *AppError {
-	return newAppError(CodeOpConflict, event, opts...)
+// NewConflict creates an AppError for a concurrent-operation conflict. (Code 10)
+func NewConflict(event string, opts ...Option) *AppError {
+	return newAppError(CodeConflict, event, opts...)
 }
 
 // NewOutOfRange creates an AppError for an out-of-range condition. (Code 11)
@@ -273,9 +273,9 @@ func NewUnimplemented(event string, opts ...Option) *AppError {
 	return newAppError(CodeUnimplemented, event, opts...)
 }
 
-// NewInternalError creates an AppError for a server-side internal error. (Code 13)
-func NewInternalError(event string, opts ...Option) *AppError {
-	return newAppError(CodeInternalError, event, opts...)
+// NewInternal creates an AppError for a server-side internal error. (Code 13)
+func NewInternal(event string, opts ...Option) *AppError {
+	return newAppError(CodeInternal, event, opts...)
 }
 
 // NewUnavailable creates an AppError for a transient unavailable condition. (Code 14)
@@ -298,7 +298,7 @@ func NewIllegalArg(event string, opts ...Option) *AppError {
 	return newAppError(CodeIllegalArg, event, opts...)
 }
 
-// NewAuthorizationExpired creates an AppError for expired authorization. (Code 30)
-func NewAuthorizationExpired(event string, opts ...Option) *AppError {
-	return newAppError(CodeAuthorizationExpired, event, opts...)
+// NewUnauthorized creates an AppError for expired authorization. (Code 30)
+func NewUnauthorized(event string, opts ...Option) *AppError {
+	return newAppError(CodeUnauthorized, event, opts...)
 }

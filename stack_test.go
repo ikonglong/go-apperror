@@ -36,7 +36,7 @@ func TestNewAppErrorCapturesStackAtCaller(t *testing.T) {
 }
 
 func TestStackTraceStringsAreSingleLine(t *testing.T) {
-	err := NewInternalError("user.lookup")
+	err := NewInternal("user.lookup")
 	for _, l := range err.StackTrace().Strings() {
 		if strings.ContainsAny(l, "\n\r") {
 			t.Errorf("stack entry contains a newline, which would split log records: %q", l)

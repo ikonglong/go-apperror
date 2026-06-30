@@ -26,7 +26,7 @@ type dbClient struct{ conn connection }
 
 func (d dbClient) Insert(data string) error {
 	if err := d.conn.ExecSQL("insert into ..."); err != nil {
-		return NewInternalError("db.insert", WithMessage("DB insert failed"), WithCause(err))
+		return NewInternal("db.insert", WithMessage("DB insert failed"), WithCause(err))
 	}
 	return nil
 }
@@ -65,7 +65,7 @@ func TestCheckAppErrorCause(t *testing.T) {
 
 func TestCreateAppErrorWithCause(t *testing.T) {
 	low := errors.New("low-level error in func_a")
-	appErr := NewInternalError("test.cause", WithMessage("higher-level error msg"), WithCause(low))
+	appErr := NewInternal("test.cause", WithMessage("higher-level error msg"), WithCause(low))
 	appErr.AddNote("additional err context...")
 	if !errors.Is(appErr, low) {
 		t.Errorf("errors.Is(appErr, low) = false, want true")
@@ -73,7 +73,7 @@ func TestCreateAppErrorWithCause(t *testing.T) {
 }
 
 func TestAddNote(t *testing.T) {
-	e := NewInternalError("test.ctx", WithMessage("initial error message"))
+	e := NewInternal("test.ctx", WithMessage("initial error message"))
 	e.AddNote("first context")
 	e.AddNote("second context")
 	want := "second context -> first context -> initial error message"
@@ -93,31 +93,31 @@ func TestAppErrorString(t *testing.T) {
 	}{
 		{
 			name: "event only, message falls back to code description",
-			err:  NewInternalError("user.signup"),
-			want: "AppError(code=INTERNAL_ERROR(13), event=user.signup, case=None, message='internal error', details=None)",
+			err:  NewInternal("user.signup"),
+			want: "AppError(code=INTERNAL(13), event=user.signup, case=None, message='internal', details=None)",
 		},
 		{
 			name: "with explicit message",
-			err:  NewInternalError("user.signup", WithMessage("boom")),
-			want: "AppError(code=INTERNAL_ERROR(13), event=user.signup, case=None, message='boom', details=None)",
+			err:  NewInternal("user.signup", WithMessage("boom")),
+			want: "AppError(code=INTERNAL(13), event=user.signup, case=None, message='boom', details=None)",
 		},
 		{
 			name: "with case",
-			err:  NewInternalError("user.signup", WithMessage("boom"), WithCase(errorCase{id: "1001", opCode: CodeInternalError})),
-			want: "AppError(code=INTERNAL_ERROR(13), event=user.signup, case=1001, message='boom', details=None)",
+			err:  NewInternal("user.signup", WithMessage("boom"), WithCase(errorCase{id: "1001", opCode: CodeInternal})),
+			want: "AppError(code=INTERNAL(13), event=user.signup, case=1001, message='boom', details=None)",
 		},
 		{
 			name: "with details",
-			err:  NewInternalError("user.signup", WithMessage("boom"), WithDetails(map[string]string{"key": "value"})),
-			want: "AppError(code=INTERNAL_ERROR(13), event=user.signup, case=None, message='boom', details=map[key:value])",
+			err:  NewInternal("user.signup", WithMessage("boom"), WithDetails(map[string]string{"key": "value"})),
+			want: "AppError(code=INTERNAL(13), event=user.signup, case=None, message='boom', details=map[key:value])",
 		},
 		{
 			name: "full",
-			err: NewInternalError("user.signup",
+			err: NewInternal("user.signup",
 				WithMessage("boom"),
-				WithCase(errorCase{id: "1001", opCode: CodeInternalError}),
+				WithCase(errorCase{id: "1001", opCode: CodeInternal}),
 				WithDetails(map[string]string{"key": "value"})),
-			want: "AppError(code=INTERNAL_ERROR(13), event=user.signup, case=1001, message='boom', details=map[key:value])",
+			want: "AppError(code=INTERNAL(13), event=user.signup, case=1001, message='boom', details=map[key:value])",
 		},
 	}
 
@@ -131,20 +131,20 @@ func TestAppErrorString(t *testing.T) {
 }
 
 func TestBuildErrorWithOptions(t *testing.T) {
-	e := NewInternalError("test.options", WithMessage("internal error"))
-	if e.Code() != CodeInternalError || e.Message() != "internal error" || e.Details() != nil {
+	e := NewInternal("test.options", WithMessage("internal error"))
+	if e.Code() != CodeInternal || e.Message() != "internal error" || e.Details() != nil {
 		t.Errorf("unexpected basic error: %v", e)
 	}
 
 	d := map[string]any{"key1": "value1"}
-	e = NewInternalError("test.options", WithMessage("internal error"), WithDetails(d))
+	e = NewInternal("test.options", WithMessage("internal error"), WithDetails(d))
 	got, ok := e.Details().(map[string]any)
 	if !ok || got["key1"] != "value1" {
 		t.Errorf("unexpected details: %v", e.Details())
 	}
 
 	d2 := map[string]any{"key1": "value1", "extra_info": map[string]string{"key2": "value2"}}
-	e = NewInternalError("test.options", WithMessage("internal error"), WithDetails(d2))
+	e = NewInternal("test.options", WithMessage("internal error"), WithDetails(d2))
 	got, ok = e.Details().(map[string]any)
 	if !ok || got["key1"] != "value1" {
 		t.Errorf("unexpected nested details: %v", e.Details())
@@ -183,14 +183,14 @@ func TestAddMoreErrCtx(t *testing.T) {
 // returns Code.Description() so unstructured loggers still see a sensible
 // string instead of "".
 func TestFactoryFallsBackToCodeDescriptionForOmittedMessage(t *testing.T) {
-	e := NewInternalError("test.fallback")
-	if e.Message() != CodeInternalError.Description() {
+	e := NewInternal("test.fallback")
+	if e.Message() != CodeInternal.Description() {
 		t.Errorf("omitted WithMessage should fall back to code description, got %q", e.Message())
 	}
 }
 
 func TestAppErrorEvent_RequiredFieldSet(t *testing.T) {
-	e := NewInternalError("user.signup")
+	e := NewInternal("user.signup")
 	if e.Event() != "user.signup" {
 		t.Errorf("Event() = %q, want %q", e.Event(), "user.signup")
 	}
@@ -208,13 +208,13 @@ func TestAppErrorEvent_PanicsOnEmpty(t *testing.T) {
 					t.Errorf("expected panic for event=%q, got none", ev)
 				}
 			}()
-			_ = NewInternalError(ev)
+			_ = NewInternal(ev)
 		})
 	}
 }
 
 func TestWithMessageSetsMessage(t *testing.T) {
-	e := NewInternalError("test.event", WithMessage("custom message"))
+	e := NewInternal("test.event", WithMessage("custom message"))
 	if e.Message() != "custom message" {
 		t.Errorf("Message() = %q, want %q", e.Message(), "custom message")
 	}

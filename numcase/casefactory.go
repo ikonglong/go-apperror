@@ -189,9 +189,9 @@ func (f *CaseFactory) NewFailedPrecondition(caseCode int) (NumCase, error) {
 	return f.create(apperror.CodeFailedPrecondition, caseCode)
 }
 
-// NewOpConflict creates a NumCase under the OpConflict segment.
-func (f *CaseFactory) NewOpConflict(caseCode int) (NumCase, error) {
-	return f.create(apperror.CodeOpConflict, caseCode)
+// NewConflict creates a NumCase under the Conflict segment.
+func (f *CaseFactory) NewConflict(caseCode int) (NumCase, error) {
+	return f.create(apperror.CodeConflict, caseCode)
 }
 
 // NewOutOfRange creates a NumCase under the OutOfRange segment.
@@ -199,9 +199,9 @@ func (f *CaseFactory) NewOutOfRange(caseCode int) (NumCase, error) {
 	return f.create(apperror.CodeOutOfRange, caseCode)
 }
 
-// NewInternalError creates a NumCase under the InternalError segment.
-func (f *CaseFactory) NewInternalError(caseCode int) (NumCase, error) {
-	return f.create(apperror.CodeInternalError, caseCode)
+// NewInternal creates a NumCase under the Internal segment.
+func (f *CaseFactory) NewInternal(caseCode int) (NumCase, error) {
+	return f.create(apperror.CodeInternal, caseCode)
 }
 
 // NewIllegalState creates a NumCase under the IllegalState segment.

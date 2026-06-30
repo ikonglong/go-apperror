@@ -17,13 +17,13 @@ const (
 	// HTTP Mapping: 200 OK
 	CodeOK Code = 0
 
-	// CodeOpCancelled means the operation was cancelled, typically by the caller.
+	// CodeCancelled means the operation was cancelled, typically by the caller.
 	// HTTP Mapping: 499 Client Closed Request
-	CodeOpCancelled Code = 1
+	CodeCancelled Code = 1
 
-	// CodeUnknownError is for an unknown error.
+	// CodeUnknown is for an unknown error.
 	// HTTP Mapping: 500 Internal Server Error
-	CodeUnknownError Code = 2
+	CodeUnknown Code = 2
 
 	// CodeIllegalInput means that the client specified an illegal input.
 	// HTTP Mapping: 400 Bad Request
@@ -56,10 +56,10 @@ const (
 	// HTTP Mapping: 400 Bad Request
 	CodeFailedPrecondition Code = 9
 
-	// CodeOpConflict means there were conflicts between concurrent operation
+	// CodeConflict means there were conflicts between concurrent operation
 	// requests.
 	// HTTP Mapping: 409 Conflict
-	CodeOpConflict Code = 10
+	CodeConflict Code = 10
 
 	// CodeOutOfRange means the operation was attempted past the valid range.
 	// HTTP Mapping: 400 Bad Request
@@ -69,10 +69,10 @@ const (
 	// HTTP Mapping: 501 Not Implemented
 	CodeUnimplemented Code = 12
 
-	// CodeInternalError means some invariants expected by the underlying
+	// CodeInternal means some invariants expected by the underlying
 	// system have been broken.
 	// HTTP Mapping: 500 Internal Server Error
-	CodeInternalError Code = 13
+	CodeInternal Code = 13
 
 	// CodeUnavailable means the service is currently unavailable.
 	// HTTP Mapping: 503 Service Unavailable
@@ -93,9 +93,9 @@ const (
 	// HTTP Mapping: 500 Internal Server Error
 	CodeIllegalArg Code = 29
 
-	// CodeAuthorizationExpired means a user's authorization expired.
+	// CodeUnauthorized means a user's authorization expired.
 	// HTTP Mapping: 401 Unauthorized
-	CodeAuthorizationExpired Code = 30
+	CodeUnauthorized Code = 30
 )
 
 type codeInfo struct {
@@ -104,25 +104,25 @@ type codeInfo struct {
 }
 
 var codeRegistry = map[Code]codeInfo{
-	CodeOK:                   {"OK", "ok"},
-	CodeOpCancelled:          {"OP_CANCELLED", "op cancelled"},
-	CodeUnknownError:         {"UNKNOWN_ERROR", "unknown error"},
-	CodeIllegalInput:         {"ILLEGAL_INPUT", "illegal input"},
-	CodeTimeout:              {"TIMEOUT", "timeout"},
-	CodeNotFound:             {"NOT_FOUND", "not found"},
-	CodeAlreadyExists:        {"ALREADY_EXISTS", "already exists"},
-	CodePermissionDenied:     {"PERMISSION_DENIED", "permission denied"},
-	CodeTooManyRequests:      {"TOO_MANY_REQUESTS", "too many requests"},
-	CodeFailedPrecondition:   {"FAILED_PRECONDITION", "failed precondition"},
-	CodeOpConflict:           {"OP_CONFLICT", "op conflict"},
-	CodeOutOfRange:           {"OUT_OF_RANGE", "out of range"},
-	CodeUnimplemented:        {"UNIMPLEMENTED", "unimplemented"},
-	CodeInternalError:        {"INTERNAL_ERROR", "internal error"},
-	CodeUnavailable:          {"UNAVAILABLE", "unavailable"},
-	CodeIllegalState:         {"ILLEGAL_STATE", "illegal state"},
-	CodeUnauthenticated:      {"UNAUTHENTICATED", "unauthenticated"},
-	CodeIllegalArg:           {"ILLEGAL_ARG", "illegal arg"},
-	CodeAuthorizationExpired: {"AUTHORIZATION_EXPIRED", "authorization expired"},
+	CodeOK:                 {"OK", "ok"},
+	CodeCancelled:          {"CANCELLED", "cancelled"},
+	CodeUnknown:            {"UNKNOWN", "unknown"},
+	CodeIllegalInput:       {"ILLEGAL_INPUT", "illegal input"},
+	CodeTimeout:            {"TIMEOUT", "timeout"},
+	CodeNotFound:           {"NOT_FOUND", "not found"},
+	CodeAlreadyExists:      {"ALREADY_EXISTS", "already exists"},
+	CodePermissionDenied:   {"PERMISSION_DENIED", "permission denied"},
+	CodeTooManyRequests:    {"TOO_MANY_REQUESTS", "too many requests"},
+	CodeFailedPrecondition: {"FAILED_PRECONDITION", "failed precondition"},
+	CodeConflict:           {"CONFLICT", "conflict"},
+	CodeOutOfRange:         {"OUT_OF_RANGE", "out of range"},
+	CodeUnimplemented:      {"UNIMPLEMENTED", "unimplemented"},
+	CodeInternal:           {"INTERNAL", "internal"},
+	CodeUnavailable:        {"UNAVAILABLE", "unavailable"},
+	CodeIllegalState:       {"ILLEGAL_STATE", "illegal state"},
+	CodeUnauthenticated:    {"UNAUTHENTICATED", "unauthenticated"},
+	CodeIllegalArg:         {"ILLEGAL_ARG", "illegal arg"},
+	CodeUnauthorized:       {"UNAUTHORIZED", "unauthorized"},
 }
 
 // AllCodes returns every Code defined by this package.
@@ -134,7 +134,7 @@ func AllCodes() []Code {
 	return out
 }
 
-// Name returns the canonical upper-snake-case name (e.g. "INTERNAL_ERROR").
+// Name returns the canonical upper-snake-case name (e.g. "INTERNAL").
 // Returns "" for unknown codes.
 func (c Code) Name() string {
 	if info, ok := codeRegistry[c]; ok {

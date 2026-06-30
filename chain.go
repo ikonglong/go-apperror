@@ -47,7 +47,7 @@ func FlatMessage(err error) string {
 // //   - *RemoteError: return e.Canonical (may be nil — RemoteError is a leaf)
 // //
 // // Returns nil if no canonical view exists. Callers at the interface
-// // boundary typically fall back to apperror.NewInternalError(...) in that
+// // boundary typically fall back to apperror.NewInternal(...) in that
 // // case.
 // func Canonical(err error) *AppError {
 // 	for cur := err; cur != nil; cur = errors.Unwrap(cur) {
