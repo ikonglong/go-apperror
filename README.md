@@ -44,9 +44,7 @@ Calling a remote service and translating its failure into your taxonomy:
 
 ```go
 // In a driven adapter, after receiving a 503 from user-service:
-return &apperror.RemoteError{
-    Canonical: apperror.NewUnavailable("user-service.GetUser",
-        apperror.WithMessage("user-service degraded")),
+remoteErr := &apperror.RemoteError{
     Service:     "user-service",
     Operation:   "GetUser",
     Response:    &apperror.Response{StatusCode: 503, Body: rawBody},
@@ -54,10 +52,16 @@ return &apperror.RemoteError{
     BodyMessage: "service in maintenance",
     RetryAfter:  30 * time.Second,
 }
+// Classify into our taxonomy and wrap the RemoteError as the cause.
+return apperror.NewUnavailable("user-service.GetUser",
+    apperror.WithMessage("user-service degraded"),
+    apperror.WithCause(remoteErr))
 ```
 
-`RemoteError` is **not** a subtype of `AppError`. `Canonical` is a parallel
-normalized view — access it directly via `r.Canonical.Code()`. See
+`RemoteError` is **not** a subtype of `AppError`. The canonical view is the
+`AppError` that wraps it as a cause — that `AppError` is what propagates, and
+`errors.As(err, &remoteErr)` recovers the remote-side root cause for a
+boundary logger. See
 [ERROR_HANDLING_GUIDE.md](./ERROR_HANDLING_GUIDE.md) for the full rationale.
 
 ## Core concepts
@@ -80,12 +84,13 @@ the UI can suggest "forgot your password? recover instead" rather than
 a generic duplicate message. If no caller will branch on it, leave
 `Case` unset.
 
-For `RemoteError`, three layers of "code" coexist:
+For `RemoteError`, three layers of "code" coexist. The canonical layer
+lives on the wrapping `AppError`; the other two on the `RemoteError`:
 
 ```go
-r.Canonical.Code()   // canonical: our taxonomy (CodeUnavailable)
-r.StatusCode()       // protocol: HTTP/RPC status (503)
-r.BodyCode           // remote app: parsed from Response.Body ("DEGRADED")
+appErr.Code()        // canonical: our taxonomy (CodeUnavailable)
+remoteErr.StatusCode() // protocol: HTTP/RPC status (503)
+remoteErr.BodyCode     // remote app: parsed from Response.Body ("DEGRADED")
 ```
 
 Each layer answers a different question; log all three for full
@@ -182,7 +187,7 @@ described in [architecture.md](./architecture.md). Per-layer responsibility:
 |---|---|
 | **Domain** | Constructs `AppError` for domain failures (NotFound, FailedPrecondition, OutOfRange, IllegalState). Knows nothing about HTTP/RPC. |
 | **Application** | Propagates errors from below, may add context via `AddNote`, may construct use-case-level `AppError` (e.g. AlreadyExists for a duplicate signup). |
-| **Driven adapter** | Owns translation of remote-service errors. Constructs `RemoteError` when the server responded; constructs `AppError` (typically `NewUnavailable`/`NewTimeout`) when no response was received. |
+| **Driven adapter** | Owns translation of remote-service errors. When the server responded, constructs a `RemoteError` and wraps it as the cause of a canonical `AppError`; when no response was received, constructs a plain `AppError` (typically `NewUnavailable`/`NewTimeout`). Either way, an `AppError` is what propagates. |
 | **Interfaces** | Catches errors at the wire boundary, maps `Code` → HTTP status via `apperror.HTTPStatusFor`, sanitizes outgoing payload. |
 
 The full rules (when to use what, anti-patterns, code recipes per layer)

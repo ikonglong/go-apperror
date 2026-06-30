@@ -23,20 +23,31 @@ import (
 //
 // # Relationship to AppError
 //
-// RemoteError is NOT a subtype of AppError. The Canonical field is NOT a
-// cause. It is a parallel, normalized view of the same RemoteError —
-// the client at the call boundary picks one of this package's Code
-// constants (e.g. CodeNotFound, CodeTooManyRequests) so cross-cutting
-// logic has a stable taxonomy to branch on. Access it explicitly via
-// r.Canonical; do not expect errors.As(err, &appErr) to recover it.
+// RemoteError is NOT a subtype of AppError, and it carries no normalized
+// taxonomy of its own. Instead, at the call boundary the client picks one
+// of this package's Code constants (e.g. CodeNotFound, CodeTooManyRequests)
+// and constructs a canonical *AppError that wraps this RemoteError as its
+// cause:
+//
+//	remoteErr := &RemoteError{Service: ..., Operation: ..., Response: ...}
+//	return NewTooManyRequests("user-service.GetUser", WithCause(remoteErr))
+//
+// That canonical *AppError is the value that propagates up; it is the
+// normalized view cross-cutting logic branches on. The RemoteError stays
+// reachable as the cause (errors.As(err, &remoteErr)) so a centralized
+// boundary logger can record the remote-side root cause, but, by
+// convention, layers above the adapter work with the *AppError, not the
+// RemoteError.
 //
 // # Three views of one error
 //
-// A RemoteError exposes three layers of error information, all describing
-// the same failure from different angles:
+// Together the wrapping *AppError and this RemoteError expose three layers
+// of error information, all describing the same failure from different
+// angles:
 //
-//   - Canonical (Canonical.Code(), etc.) — our normalized taxonomy. Use
-//     for retry / circuit breaker / log aggregation keys.
+//   - Canonical (the wrapping AppError's Code(), Message(), etc.) — our
+//     normalized taxonomy. Use for retry / circuit breaker / log
+//     aggregation keys. Reach it with errors.As(err, &appErr).
 //
 //   - Protocol (StatusCode, surfaced from Response.StatusCode) — the
 //     transport-protocol status (HTTP status / gRPC status). Use for
@@ -49,25 +60,14 @@ import (
 //
 // Conventions
 //
-//   - Canonical must be non-nil.
 //   - Response must be non-nil — that's the precondition that makes this a
 //     RemoteError in the first place.
-//   - Do NOT call WithCause on the Canonical. RemoteError has no cause.
-//   - The event you pass to the Canonical's factory is preserved on
-//     r.Canonical.Event() but is NEVER consulted by r.Event() (which
-//     always derives from Service.Operation). Convention: pass
-//     Service+"."+Operation so r.Canonical.Event() and r.Event() agree
-//     when read in isolation.
-//   - Do NOT set the Canonical's Details. Remote-side structured info
-//     lives on this struct's typed fields; raw payload lives in
-//     Response.Body.
+//   - Wrap the RemoteError as the cause of a canonical *AppError via
+//     WithCause, and propagate that AppError. A RemoteError should not be
+//     the top-level error past the adapter boundary.
 //   - Operation is a logical operation name (e.g. "GetUser"), not an HTTP
 //     method + path.
 type RemoteError struct {
-	// Canonical is the normalized application-level view of this failure.
-	// See package-level Code constants. Must be non-nil.
-	Canonical *AppError
-
 	// Service is the logical name of the remote service called
 	// (e.g. "user-service", "stripe").
 	Service string
@@ -118,23 +118,19 @@ func (r *RemoteError) Event() string {
 }
 
 // RemoteError is a leaf error: it has no Unwrap because it has no cause.
-// The Canonical view is NOT in any errors.Is / errors.As chain; reach it
-// directly via r.Canonical.
+// The canonical view lives on the *AppError that wraps it; reach that with
+// errors.As(err, &appErr).
 
 // Error implements the error interface.
 func (r *RemoteError) Error() string { return r.String() }
 
 // String formats the error for human consumption. Output is RemoteError-
-// shaped (not AppError-shaped) so the outer fields are visible.
+// shaped (not AppError-shaped) so the remote-side fields are visible. The
+// canonical Code/Message are not repeated here — they live on the wrapping
+// AppError, which is emitted as its own layer (e.g. by FlatMessage).
 func (r *RemoteError) String() string {
-	var code Code
-	var msg string
-	if r.Canonical != nil {
-		code = r.Canonical.Code()
-		msg = r.Canonical.Message()
-	}
 	return fmt.Sprintf(
-		"RemoteError(service=%s, operation=%s, status=%d, bodyCode=%s, retryAfter=%s, code=%s, message='%s')",
-		r.Service, r.Operation, r.StatusCode(), r.BodyCode, r.RetryAfter, code, msg,
+		"RemoteError(service=%s, operation=%s, status=%d, bodyCode=%s, retryAfter=%s)",
+		r.Service, r.Operation, r.StatusCode(), r.BodyCode, r.RetryAfter,
 	)
 }

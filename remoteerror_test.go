@@ -10,7 +10,6 @@ import (
 
 func newRemoteErrorFixture() *RemoteError {
 	return &RemoteError{
-		Canonical:   NewUnavailable("user-service.GetUser", WithMessage("user-service call failed")),
 		Service:     "user-service",
 		Operation:   "GetUser",
 		Request:     &Request{Method: "GET", URL: "/users/42"},
@@ -18,16 +17,6 @@ func newRemoteErrorFixture() *RemoteError {
 		BodyCode:    "DEGRADED",
 		BodyMessage: "service degraded",
 		RetryAfter:  30 * time.Second,
-	}
-}
-
-func TestRemoteErrorCanonicalAccessors(t *testing.T) {
-	r := newRemoteErrorFixture()
-	if r.Canonical.Code() != CodeUnavailable {
-		t.Errorf("Canonical.Code() = %s, want %s", r.Canonical.Code(), CodeUnavailable)
-	}
-	if r.Canonical.Message() != "user-service call failed" {
-		t.Errorf("Canonical.Message() = %q", r.Canonical.Message())
 	}
 }
 
@@ -39,7 +28,6 @@ func TestRemoteErrorStatusCode(t *testing.T) {
 }
 
 // RemoteError is a leaf error: it has no cause and Unwrap returns nil.
-// The Canonical view is intentionally not on the errors.As chain.
 func TestRemoteErrorIsLeaf(t *testing.T) {
 	r := newRemoteErrorFixture()
 	if errors.Unwrap(r) != nil {
@@ -47,15 +35,15 @@ func TestRemoteErrorIsLeaf(t *testing.T) {
 	}
 }
 
-// Canonical is a parallel view, not a chain step: errors.As to *AppError
-// must NOT succeed via a RemoteError. Consumers access the canonical view
-// explicitly through r.Canonical.
-func TestRemoteErrorCanonicalNotInChain(t *testing.T) {
+// A bare RemoteError carries no AppError: the canonical view lives on the
+// *AppError that wraps it as a cause, not on the RemoteError itself. So
+// errors.As to *AppError must NOT succeed via a lone RemoteError.
+func TestRemoteErrorCarriesNoAppError(t *testing.T) {
 	r := newRemoteErrorFixture()
 	var ae *AppError
 	if errors.As(error(r), &ae) {
 		t.Error("errors.As(remoteErr, &*AppError) should NOT succeed; " +
-			"Canonical is a parallel view, not in the cause chain")
+			"a RemoteError carries no canonical AppError of its own")
 	}
 }
 
@@ -86,8 +74,6 @@ func TestRemoteErrorStringFormat(t *testing.T) {
 		"status=503",
 		"bodyCode=DEGRADED",
 		"retryAfter=30s",
-		"code=UNAVAILABLE(14)",
-		"message='user-service call failed'",
 	} {
 		if !strings.Contains(got, want) {
 			t.Errorf("Error() missing %q\ngot: %s", want, got)
@@ -102,32 +88,20 @@ func TestRemoteErrorEvent(t *testing.T) {
 	}
 }
 
-// RemoteError.Event() is independent of the Canonical's Event field:
-// whatever event was passed to the Canonical's factory (event is now a
-// required positional arg, so the caller MUST pass something), r.Event()
-// still derives from Service.Operation. Convention: callers commonly pass
-// Service.Operation to the Canonical so r.Canonical.Event() reads the
-// same as r.Event(), but the value on the Canonical is never consulted
-// by r.Event().
-func TestRemoteErrorEventIndependentOfCanonical(t *testing.T) {
-	r := &RemoteError{
-		Canonical: NewUnavailable("unrelated.event", WithMessage("call failed")),
-		Service:   "user-service",
-		Operation: "GetUser",
-		Response:  &Response{StatusCode: 503},
-	}
-	if got, want := r.Event(), "user-service.GetUser"; got != want {
-		t.Errorf("Event() = %q, want %q", got, want)
-	}
-	if r.Canonical.Event() != "unrelated.event" {
-		t.Errorf("Canonical.Event() not preserved (got %q)", r.Canonical.Event())
-	}
-}
-
-func TestRemoteErrorAddNoteOnCanonical(t *testing.T) {
+// The canonical AppError wraps the RemoteError as its cause, and AddNote on
+// that AppError enriches its message without disturbing the RemoteError or
+// breaking errors.As recovery of the cause.
+func TestRemoteErrorWrappedByCanonical(t *testing.T) {
 	r := newRemoteErrorFixture()
-	r.Canonical.AddNote("during checkout")
-	if !strings.HasPrefix(r.Canonical.Message(), "during checkout -> ") {
-		t.Errorf("AddNote should prepend context; got %q", r.Canonical.Message())
+	canonical := NewUnavailable("user-service.GetUser",
+		WithMessage("user-service call failed"), WithCause(r))
+	canonical.AddNote("during checkout")
+
+	if !strings.HasPrefix(canonical.Message(), "during checkout -> ") {
+		t.Errorf("AddNote should prepend context; got %q", canonical.Message())
+	}
+	var re *RemoteError
+	if !errors.As(error(canonical), &re) || re != r {
+		t.Error("errors.As should recover the wrapped RemoteError cause")
 	}
 }
