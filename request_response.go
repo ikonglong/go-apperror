@@ -11,12 +11,11 @@ type Request struct {
 }
 
 // Response captures an HTTP/RPC response associated with an error. Its
-// presence is what makes a failure a RemoteError (the server received the
-// request and replied); transport-layer failures where no response was
-// received are NOT modeled as RemoteError — represent those as plain
-// AppError, see the RemoteError doc.
+// presence is what distinguishes a remote-response failure (modeled as
+// RemoteErrorResp + RemoteError) from a transport failure (modeled as a
+// plain AppError). See the RemoteError and RemoteErrorResp docs.
 type Response struct {
 	StatusCode int
 	Headers    map[string][]string
-	Body       []byte // raw bytes; parsed views live on RemoteError fields
+	Body       []byte // raw bytes; parsed views live on RemoteErrorResp fields
 }

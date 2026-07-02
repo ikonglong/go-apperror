@@ -27,17 +27,13 @@ func FlatMessage(err error) string {
 }
 
 // To recover the canonical view from an error chain, use the standard
-// errors.As(err, &appErr): the canonical *AppError is the layer that wraps
-// any *RemoteError as its cause, so it is found first. There is no separate
-// Canonical helper because it would add nothing over errors.As.
+// errors.As(err, &appErr): the canonical *AppError is found first. There is
+// no separate Canonical helper because it would add nothing over errors.As.
 
 // ownMessage returns the part of err.Error() that originated at THIS
 // layer (excluding any nested cause's message). Per type:
 //   - *AppError:    e.Message()
-//   - *RemoteError: e.Error() — keeps the full forensic line
-//     (service/operation/status/bodyCode/retryAfter) inline so a one-line
-//     FlatMessage still carries the remote-side signals DevOps needs when
-//     triaging.
+//   - *RemoteError: e.Message()
 //   - other:        see inline notes below.
 func ownMessage(err error) string {
 	// Inspecting the concrete type of THIS layer is intentional — the
@@ -46,7 +42,7 @@ func ownMessage(err error) string {
 	case *AppError:
 		return e.Message()
 	case *RemoteError:
-		return e.Error()
+		return e.Message()
 	}
 
 	// Wrap-shaped errors (typically fmt.Errorf("...: %w", inner)) embed

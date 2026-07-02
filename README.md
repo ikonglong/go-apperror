@@ -2,13 +2,14 @@
 
 A Go error model for applications that follow a ports-and-adapters
 architecture. Provides a standardized error taxonomy (`AppError`), a
-dedicated type for remote-service failures (`RemoteError`), and the small
+dedicated error type for remote-service failures (`RemoteError`), a DTO
+for normalising remote error responses (`RemoteErrorResp`), and the small
 amount of glue needed to translate between them and the wire (HTTP/gRPC)
 at the application boundary.
 
 > **Design goal**: one in-app error type for application-domain errors,
-> a *separate* type for "we called a remote service and it responded with
-> failure" — distinguished by type, not by fields inside one shared type.
+> a *separate* type for "we called a remote service and it failed" —
+> distinguished by type, not by fields inside one shared type.
 > Cross-cutting concerns (retry, logging, HTTP mapping) get a stable
 > taxonomy to switch on; debugging keeps full access to the original
 > protocol-level and remote-app-level signals.
@@ -43,25 +44,32 @@ err.Message() // user not found   (or Code.Description() if WithMessage omitted)
 Calling a remote service and translating its failure into your taxonomy:
 
 ```go
-// In a driven adapter, after receiving a 503 from user-service:
-remoteErr := &apperror.RemoteError{
-    Service:     "user-service",
-    Operation:   "GetUser",
+// In a driven adapter, after receiving a 503 from user-service.
+// Step 1: parse the response into a DTO.
+resp := &apperror.RemoteErrorResp{
     Response:    &apperror.Response{StatusCode: 503, Body: rawBody},
     BodyCode:    "DEGRADED",
     BodyMessage: "service in maintenance",
     RetryAfter:  30 * time.Second,
 }
-// Classify into our taxonomy and wrap the RemoteError as the cause.
+// Step 2: classify into our taxonomy. RemoteError carries the Code and
+// the event; the DTO is the forensic record.
+remoteErr := apperror.NewRemoteUnavailable("user-service.GetUser",
+    apperror.WithErrResp(resp),
+)
+// Step 3: propagate. The caller may wrap it as the cause of an AppError
+// if reclassification is needed, or return it directly.
 return apperror.NewUnavailable("user-service.GetUser",
     apperror.WithMessage("user-service degraded"),
     apperror.WithCause(remoteErr))
 ```
 
-`RemoteError` is **not** a subtype of `AppError`. The canonical view is the
-`AppError` that wraps it as a cause — that `AppError` is what propagates, and
-`errors.As(err, &remoteErr)` recovers the remote-side root cause for a
-boundary logger. See
+`RemoteError` is **not** a subtype of `AppError`. It is a parallel
+first-class error type — the driven adapter's return value. Layers above
+may propagate it directly or wrap it as the cause of an `AppError`.
+`errors.As(err, &remoteErr)` recovers it; `errors.As(err, &resp)` does
+NOT recover the DTO (it's not in the Unwrap chain — reach it via
+`remoteErr.ErrResp()`). See
 [ERROR_HANDLING_GUIDE.md](./ERROR_HANDLING_GUIDE.md) for the full rationale.
 
 ## Core concepts
@@ -84,13 +92,12 @@ the UI can suggest "forgot your password? recover instead" rather than
 a generic duplicate message. If no caller will branch on it, leave
 `Case` unset.
 
-For `RemoteError`, three layers of "code" coexist. The canonical layer
-lives on the wrapping `AppError`; the other two on the `RemoteError`:
+For `RemoteError`, three layers of "code" coexist:
 
 ```go
-appErr.Code()        // canonical: our taxonomy (CodeUnavailable)
-remoteErr.StatusCode() // protocol: HTTP/RPC status (503)
-remoteErr.BodyCode     // remote app: parsed from Response.Body ("DEGRADED")
+remoteErr.Code()            // canonical: our taxonomy (CodeUnavailable)
+remoteErr.ErrResp().StatusCode() // protocol: HTTP/RPC status (503)
+remoteErr.ErrResp().BodyCode     // remote app: from Response.Body ("DEGRADED")
 ```
 
 Each layer answers a different question; log all three for full
@@ -187,7 +194,7 @@ described in [architecture.md](./architecture.md). Per-layer responsibility:
 |---|---|
 | **Domain** | Constructs `AppError` for domain failures (NotFound, FailedPrecondition, OutOfRange, IllegalState). Knows nothing about HTTP/RPC. |
 | **Application** | Propagates errors from below, may add context via `AddNote`, may construct use-case-level `AppError` (e.g. AlreadyExists for a duplicate signup). |
-| **Driven adapter** | Owns translation of remote-service errors. When the server responded, constructs a `RemoteError` and wraps it as the cause of a canonical `AppError`; when no response was received, constructs a plain `AppError` (typically `NewUnavailable`/`NewTimeout`). Either way, an `AppError` is what propagates. |
+| **Driven adapter** | Owns translation of remote-service errors. When the server responded, parses the response into a `RemoteErrorResp` DTO, then constructs a `RemoteError` via factory + `WithErrResp`; when no response was received, constructs a plain `AppError` (typically `NewUnavailable`/`NewTimeout`). |
 | **Interfaces** | Catches errors at the wire boundary, maps `Code` → HTTP status via `apperror.HTTPStatusFor`, sanitizes outgoing payload. |
 
 The full rules (when to use what, anti-patterns, code recipes per layer)
@@ -204,8 +211,8 @@ github.com/ikonglong/go-apperror               # root package
 ├── case.go                  Case interface, StrCase
 ├── httpstatus.go            HTTPStatus enum
 ├── http_op_mapping.go       Code ⇄ HTTP status mapping helpers
-├── request_response.go      Captured wire artifacts for RemoteError
-└── remoteerror.go           RemoteError type
+├── request_response.go      Captured wire artifacts for RemoteErrorResp
+└── remoteerror.go           RemoteErrorResp DTO + RemoteError type
 
 github.com/ikonglong/go-apperror/numcase       # optional sub-package
 └── ...                      Numeric Case identifiers (e.g. "1_3_1042")

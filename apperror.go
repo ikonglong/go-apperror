@@ -14,11 +14,10 @@ import (
 // failures, business-rule violations, internal failures, and importantly:
 // failures when calling a remote service where NO response was received
 // (DNS failure, connection refused/reset, TLS handshake failure, timeout
-// before any bytes arrived). For server-responded remote failures (any
-// status code, app-level error envelope in the body), build a RemoteError
-// and wrap it as the cause of a canonical AppError via WithCause — the
-// AppError is the value that propagates; the RemoteError is the forensic
-// root cause. See the RemoteError doc.
+// before any bytes arrived). For server-responded remote failures, use
+// RemoteError instead — build a RemoteErrorResp from the response, then
+// construct a RemoteError via factory + WithErrResp (or propagate the
+// RemoteError directly). See the RemoteError doc.
 //
 // # Construction
 //

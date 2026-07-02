@@ -61,28 +61,38 @@ func TestFlatMessage_UnknownWrapNonColonSeparator_ConservativeFallback(t *testin
 }
 
 func TestFlatMessage_RemoteErrorAtTop(t *testing.T) {
-	r := &RemoteError{
-		Service:   "user-service",
-		Operation: "GetUser",
-		Response:  &Response{StatusCode: 503},
-	}
-	// FlatMessage emits the full RemoteError forensic line so DevOps can
-	// see service/operation/status/bodyCode/retryAfter inline.
-	if got := FlatMessage(r); got != r.Error() {
-		t.Errorf("FlatMessage = %q, want r.Error() %q", got, r.Error())
+	e := NewRemoteUnavailable("user-service.GetUser")
+	// RemoteError.ownMessage returns e.Message() (like AppError), not the
+	// full debug String(); FlatMessage sees only the human-readable message.
+	want := e.Message()
+	if got := FlatMessage(e); got != want {
+		t.Errorf("FlatMessage = %q, want %q", got, want)
 	}
 }
 
-func TestFlatMessage_AppErrorWrapsRemoteError(t *testing.T) {
-	r := &RemoteError{
-		Service:    "user-service",
-		Operation:  "GetUser",
+func TestFlatMessage_RemoteErrorWithErrRespInChain(t *testing.T) {
+	resp := &RemoteErrorResp{
 		Response:   &Response{StatusCode: 503},
 		RetryAfter: 30 * time.Second,
 	}
-	top := NewInternal("user.lookup", WithMessage("user lookup failed"), WithCause(r))
+	remoteErr := NewRemoteUnavailable("user-service.GetUser", WithErrResp(resp))
+	top := NewInternal("user.lookup", WithMessage("user lookup failed"), WithCause(remoteErr))
 
-	want := "user lookup failed -> " + r.Error()
+	// FlatMessage layers: AppError.Message() -> RemoteError.Message()
+	want := "user lookup failed -> " + remoteErr.Message()
+	if got := FlatMessage(top); got != want {
+		t.Errorf("FlatMessage = %q, want %q", got, want)
+	}
+}
+
+func TestFlatMessage_RemoteErrorWithCauseInChain(t *testing.T) {
+	connErr := errors.New("connection refused")
+	remoteErr := NewRemoteUnavailable("user-service.GetUser",
+		func(re *RemoteError) { re.cause = connErr })
+	top := NewInternal("user.lookup", WithMessage("user lookup failed"), WithCause(remoteErr))
+
+	// Chain: AppError -> RemoteError -> connErr
+	want := "user lookup failed -> unavailable -> connection refused"
 	if got := FlatMessage(top); got != want {
 		t.Errorf("FlatMessage = %q, want %q", got, want)
 	}
