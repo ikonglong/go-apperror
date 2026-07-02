@@ -12,7 +12,7 @@ at the application boundary.
 > distinguished by type, not by fields inside one shared type.
 > Cross-cutting concerns (retry, logging, HTTP mapping) get a stable
 > taxonomy to switch on; debugging keeps full access to the original
-> protocol-level and remote-app-level signals.
+> protocol status and remote application error codes.
 
 ## Install
 
@@ -23,6 +23,8 @@ go get github.com/ikonglong/go-apperror
 Requires Go 1.22+.
 
 ## At a glance
+
+### AppError
 
 ```go
 import "github.com/ikonglong/go-apperror"
@@ -35,13 +37,18 @@ err := apperror.NewNotFound("user.lookup",
     apperror.WithCase(apperror.NewStrCase("user_id_missing")),
 )
 
-err.Code()    // CodeNotFound  (canonical)
+err.Code()    // CodeNotFound
 err.Event()   // user.lookup      (required)
 err.Case()    // user_id_missing
 err.Message() // user not found   (or Code.Description() if WithMessage omitted)
 ```
 
-Calling a remote service and translating its failure into your taxonomy:
+### RemoteError
+
+`RemoteError` is a separate type from `AppError` — it is the error that a
+driven adapter returns after a remote call fails. Recover it with
+`errors.As(err, &remoteErr)`. The DTO inside it (`RemoteErrorResp`) is
+not in the Unwrap chain; reach it via `remoteErr.ErrResp()`.
 
 ```go
 // In a driven adapter, after receiving a 503 from user-service.
@@ -54,30 +61,32 @@ resp := &apperror.RemoteErrorResp{
 }
 // Step 2: classify into our taxonomy. RemoteError carries the Code and
 // the event; the DTO is the forensic record.
-remoteErr := apperror.NewRemoteUnavailable("user-service.GetUser",
+remoteErr := apperror.NewRemoteUnavailable("UserService.GetUser",
     apperror.WithErrResp(resp),
 )
-// Step 3: propagate. The caller may wrap it as the cause of an AppError
-// if reclassification is needed, or return it directly.
-return apperror.NewUnavailable("user-service.GetUser",
+// Step 3: the adapter returns the RemoteError.
+return remoteErr
+```
+
+If the caller at the application layer needs to reclassify the failure,
+it wraps the RemoteError as the cause of an AppError:
+
+```go
+return apperror.NewUnavailable("UserService.GetUser",
     apperror.WithMessage("user-service degraded"),
     apperror.WithCause(remoteErr))
 ```
 
-`RemoteError` is **not** a subtype of `AppError`. It is a parallel
-first-class error type — the driven adapter's return value. Layers above
-may propagate it directly or wrap it as the cause of an `AppError`.
-`errors.As(err, &remoteErr)` recovers it; `errors.As(err, &resp)` does
-NOT recover the DTO (it's not in the Unwrap chain — reach it via
-`remoteErr.ErrResp()`). See
-[ERROR_HANDLING_GUIDE.md](./ERROR_HANDLING_GUIDE.md) for the full rationale.
+See the
+[error handling guide](https://github.com/ikonglong/entapp-dev/blob/main/knowledge/error-handling/error-handling.md)
+for the full rationale.
 
 ## Core concepts
 
 | Concept | What it answers |
 |---|---|
 | `Code` | (required) Category of failure, from a closed standardized taxonomy (NotFound, Unavailable, IllegalInput, ...). Picked via the factory you call. Use for cross-cutting decisions. |
-| `Event` | (required) The operation/event during which the failure occurred (`"user.signup"`). Positional argument to every factory. For structured-log aggregation. Recommended format: `{namespace}.{operation}`. Empty event panics at construction time. |
+| `Event` | (required) The operation/event during which the failure occurred (`"user.signup"`). Positional argument to every factory. For structured-log aggregation. Recommended format: `{namespace}[.{sub-namespace}].{operation}`. Empty event panics at construction time. |
 | `Message` | (optional, via `WithMessage`) Human-readable description. Falls back to `Code.Description()` if omitted, so unstructured loggers still see a sensible string. |
 | `Case` | (optional, via `WithCase`) The specific business condition (`"purchase_limit_exceeded"`). Orthogonal to Code. |
 | `Cause` | (optional, via `WithCause`) Underlying error for `errors.Is` / `errors.As` chains. |
@@ -95,13 +104,13 @@ a generic duplicate message. If no caller will branch on it, leave
 For `RemoteError`, three layers of "code" coexist:
 
 ```go
-remoteErr.Code()            // canonical: our taxonomy (CodeUnavailable)
+remoteErr.Code()            // our taxonomy (CodeUnavailable)
 remoteErr.ErrResp().StatusCode() // protocol: HTTP/RPC status (503)
 remoteErr.ErrResp().BodyCode     // remote app: from Response.Body ("DEGRADED")
 ```
 
-Each layer answers a different question; log all three for full
-observability fidelity.
+Each layer answers a different question; log all three to get the
+full picture.
 
 ## Code reference
 
@@ -121,11 +130,11 @@ identifiers are `CodeOK`, `CodeNotFound`, etc.
 | `OK` | 0 | 200 | Not an error. Exists only for the Code↔HTTP mapping; no factory provided. |
 | `Cancelled` | 1 | 499 | Operation was cancelled, typically by the caller (context cancelled, client disconnected). |
 | `Unknown` | 2 | 500 | Unknown error; classification information is missing or the failure came from an unknown error space. |
-| `IllegalInput` | 3 | 400 | Client supplied illegal input (malformed field, missing required value). |
-| `Timeout` | 4 | 504 | Deadline expired before the operation could complete. For state-changing ops, may be returned even when the op later succeeds. |
+| `IllegalInput` | 3 | 400 | Client supplied illegal input (malformed field, missing required value). gRPC equivalent: `INVALID_ARGUMENT`. |
+| `Timeout` | 4 | 504 | Deadline expired before the operation could complete. For state-changing operations, may be returned even when the operation later succeeds. gRPC equivalent: `DEADLINE_EXCEEDED`. |
 | `NotFound` | 5 | 404 | A requested entity was not found. |
 | `AlreadyExists` | 6 | 409 | The entity the client attempted to create already exists. |
-| `PermissionDenied` | 7 | 403 | Caller is identified but lacks permission for this operation. |
+| `PermissionDenied` | 7 | 403 | Caller is identified but lacks permission for this operation. Must not be used when the caller cannot be identified — use `Unauthenticated` instead. |
 | `TooManyRequests` | 8 | 429 | A resource has been exhausted: per-user quota, rate limit, per-resource budget. gRPC equivalent: `RESOURCE_EXHAUSTED`. |
 | `FailedPrecondition` | 9 | 400 | System is not in the state required for the operation (e.g. non-empty `rmdir`). |
 | `Conflict` | 10 | 409 | Concurrent operations conflicted (optimistic-locking version mismatch, transaction abort). gRPC equivalent: `ABORTED`. |
@@ -187,20 +196,20 @@ distinguished by *who* supplied it:
 
 ## How it fits the architecture
 
-This library is designed to pair with the ports-and-adapters style
-described in [architecture.md](./architecture.md). Per-layer responsibility:
+This library is designed to pair with a ports-and-adapters architecture
+(see [architecture.md](https://github.com/ikonglong/entapp-dev/blob/main/knowledge/architecture/architecture.md)).
+Per-layer responsibility:
 
 | Layer | Error responsibility |
 |---|---|
 | **Domain** | Constructs `AppError` for domain failures (NotFound, FailedPrecondition, OutOfRange, IllegalState). Knows nothing about HTTP/RPC. |
 | **Application** | Propagates errors from below, may add context via `AddNote`, may construct use-case-level `AppError` (e.g. AlreadyExists for a duplicate signup). |
-| **Driven adapter** | Owns translation of remote-service errors. When the server responded, parses the response into a `RemoteErrorResp` DTO, then constructs a `RemoteError` via factory + `WithErrResp`; when no response was received, constructs a plain `AppError` (typically `NewUnavailable`/`NewTimeout`). |
+| **Driven adapter** | Owns translation of remote-service errors. Parses the response into a `RemoteErrorResp` DTO when the server responded, then constructs a `RemoteError` via factory + `WithErrResp`; when no response was received (or when the client library returns an opaque error), passes the raw transport error as cause via an inline closure. In all cases the adapter returns a `*RemoteError`. |
 | **Interfaces** | Catches errors at the wire boundary, maps `Code` → HTTP status via `apperror.HTTPStatusFor`, sanitizes outgoing payload. |
 
-The full rules (when to use what, anti-patterns, code recipes per layer)
-are in [ERROR_HANDLING_GUIDE.md](./ERROR_HANDLING_GUIDE.md). That document
-is also designed to be referenced from a downstream app's `CLAUDE.md` so
-Claude Code follows the same conventions.
+For per-layer usage guidance, see the
+[error handling guide](https://github.com/ikonglong/entapp-dev/blob/main/knowledge/error-handling/error-handling.md)
+and the type docs on AppError and RemoteError.
 
 ## Package layout
 
@@ -250,11 +259,10 @@ make help            # list all targets
 
 ## Documentation
 
-- [ERROR_HANDLING_GUIDE.md](./ERROR_HANDLING_GUIDE.md) — the full
-  per-layer guide with code recipes and anti-patterns. The canonical
-  reference for using this library in apps.
-- [architecture.md](./architecture.md) — the architectural style this
-  library is designed to support.
+- [Error handling guide](https://github.com/ikonglong/entapp-dev/blob/main/knowledge/error-handling/error-handling.md) —
+  per-layer guidance with code recipes and anti-patterns
+- [Architecture](https://github.com/ikonglong/entapp-dev/blob/main/knowledge/architecture/architecture.md) —
+  the ports-and-adapters style this library is designed to support
 
 ## License
 

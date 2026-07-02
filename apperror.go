@@ -11,13 +11,13 @@ import (
 // # When to use AppError vs RemoteError
 //
 // AppError covers errors originating in this application — validation
-// failures, business-rule violations, internal failures, and importantly:
-// failures when calling a remote service where NO response was received
-// (DNS failure, connection refused/reset, TLS handshake failure, timeout
-// before any bytes arrived). For server-responded remote failures, use
-// RemoteError instead — build a RemoteErrorResp from the response, then
-// construct a RemoteError via factory + WithErrResp (or propagate the
-// RemoteError directly). See the RemoteError doc.
+// failures, business-rule violations, internal failures in domain logic
+// or infrastructure that is local to this process. For failures when
+// calling a remote service (regardless of whether a response was
+// received), use RemoteError — RemoteError uniformly models all
+// remote-call outcomes. Build a RemoteErrorResp from the response when
+// one was received; otherwise pass the transport error as cause. See the
+// RemoteError doc.
 //
 // # Construction
 //
@@ -115,7 +115,7 @@ func newAppError(code Code, event string, opts ...Option) *AppError {
 	return e
 }
 
-// Code returns the canonical operation status code.
+// Code returns the operation status code.
 func (e *AppError) Code() Code { return e.code }
 
 // Case returns the attached Case, or nil if none was set.
@@ -133,7 +133,9 @@ func (e *AppError) Details() any { return e.details }
 // (factories panic on empty event at construction time). The event names
 // the operation during which the error occurred (e.g. "user.signup",
 // "order.create"), not the failure mode (which Code and Case describe).
-// Recommended convention: "<domain>.<operation>".
+// Recommended convention: "{namespace}[.{sub-namespace}].{operation}".
+// In the Application and Domain layers this is typically
+// "{domain}.{operation}" (e.g. "user.signup", "order.create").
 func (e *AppError) Event() string { return e.event }
 
 // Cause returns the underlying cause, or nil. Equivalent to Unwrap.

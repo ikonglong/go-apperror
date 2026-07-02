@@ -29,7 +29,7 @@ func TestCodeStringRepresentation(t *testing.T) {
 	}
 }
 
-func TestOpCodeForHTTPStatus(t *testing.T) {
+func TestCodeForHTTPStatus(t *testing.T) {
 	cases := map[int]Code{
 		200: CodeOK,
 		400: CodeIllegalInput,
@@ -46,8 +46,8 @@ func TestOpCodeForHTTPStatus(t *testing.T) {
 		600: CodeUnknown,
 	}
 	for status, want := range cases {
-		if got := OpCodeFor(status); got != want {
-			t.Errorf("OpCodeFor(%d) = %s, want %s", status, got, want)
+		if got := CodeFor(status); got != want {
+			t.Errorf("CodeFor(%d) = %s, want %s", status, got, want)
 		}
 	}
 }

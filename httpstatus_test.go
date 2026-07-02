@@ -12,7 +12,6 @@ func TestHTTPStatusForCode(t *testing.T) {
 		{401, StatusUnauthorized},
 		{403, StatusForbidden},
 		{404, StatusNotFound},
-		{405, StatusMethodNotAllowed},
 		{409, StatusConflict},
 		{429, StatusTooManyRequests},
 		{499, StatusClientClosedRequest},
@@ -37,14 +36,13 @@ func TestHTTPStatusForCode(t *testing.T) {
 
 func TestHTTPStatusString(t *testing.T) {
 	cases := map[HTTPStatus]string{
-		StatusOK:               "HTTPStatus.OK(200)",
-		StatusBadRequest:       "HTTPStatus.BAD_REQUEST(400)",
-		StatusUnauthorized:     "HTTPStatus.UNAUTHORIZED(401)",
-		StatusForbidden:        "HTTPStatus.FORBIDDEN(403)",
-		StatusNotFound:         "HTTPStatus.NOT_FOUND(404)",
-		StatusMethodNotAllowed: "HTTPStatus.METHOD_NOT_ALLOWED(405)",
-		StatusConflict:         "HTTPStatus.CONFLICT(409)",
-		StatusTooManyRequests:  "HTTPStatus.TOO_MANY_REQUESTS(429)",
+		StatusOK:              "HTTPStatus.OK(200)",
+		StatusBadRequest:      "HTTPStatus.BAD_REQUEST(400)",
+		StatusUnauthorized:    "HTTPStatus.UNAUTHORIZED(401)",
+		StatusForbidden:       "HTTPStatus.FORBIDDEN(403)",
+		StatusNotFound:        "HTTPStatus.NOT_FOUND(404)",
+		StatusConflict:        "HTTPStatus.CONFLICT(409)",
+		StatusTooManyRequests: "HTTPStatus.TOO_MANY_REQUESTS(429)",
 	}
 	for s, want := range cases {
 		if got := s.String(); got != want {

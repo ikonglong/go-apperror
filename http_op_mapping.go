@@ -44,9 +44,9 @@ var httpStatusToCode = map[HTTPStatus]Code{
 	StatusTimeout:             CodeTimeout,
 }
 
-// OpCodeFor returns the operation status Code that the given HTTP status code
-// maps to. Unknown statuses map to CodeUnknown.
-func OpCodeFor(httpStatus int) Code {
+// CodeFor returns the Code that the given HTTP status code maps to.
+// Unknown statuses map to CodeUnknown.
+func CodeFor(httpStatus int) Code {
 	if c, ok := httpStatusToCode[HTTPStatus(httpStatus)]; ok {
 		return c
 	}

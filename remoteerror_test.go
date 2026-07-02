@@ -38,6 +38,9 @@ func TestRemoteErrorRespStringFormat(t *testing.T) {
 	for _, want := range []string{
 		"status=503",
 		"bodyCode=DEGRADED",
+		"bodyMessage=service degraded",
+		"response=Response(status=503, body={\"code\":\"DEGRADED\"})",
+
 		"retryAfter=30s",
 	} {
 		if !strings.Contains(got, want) {
@@ -56,8 +59,13 @@ func TestRemoteErrorRespIsNotAnError(t *testing.T) {
 
 // --- RemoteError tests ---
 
+var errSentinel = errors.New("sentinel")
+
 func newRemoteErrorFixture(opts ...RemoteOption) *RemoteError {
-	return NewRemoteUnavailable("user-service.GetUser", opts...)
+	// Default to a sentinel cause so that callers who don't set errResp or
+	// cause still satisfy the "at least one must be set" constructor rule.
+	return NewRemoteUnavailable("UserService.GetUser",
+		append([]RemoteOption{func(re *RemoteError) { re.cause = errSentinel }}, opts...)...)
 }
 
 func TestRemoteErrorConstruction(t *testing.T) {
@@ -65,14 +73,14 @@ func TestRemoteErrorConstruction(t *testing.T) {
 	if e.Code() != CodeUnavailable {
 		t.Errorf("Code() = %s, want %s", e.Code(), CodeUnavailable)
 	}
-	if e.Event() != "user-service.GetUser" {
-		t.Errorf("Event() = %q, want %q", e.Event(), "user-service.GetUser")
+	if e.Event() != "UserService.GetUser" {
+		t.Errorf("Event() = %q, want %q", e.Event(), "UserService.GetUser")
 	}
 	if e.Message() != CodeUnavailable.Description() {
 		t.Errorf("Message() = %q, want %q", e.Message(), CodeUnavailable.Description())
 	}
-	if e.Cause() != nil {
-		t.Errorf("Cause() = %v, want nil", e.Cause())
+	if !errors.Is(e.Cause(), errSentinel) {
+		t.Errorf("Cause() = %v, want %v", e.Cause(), errSentinel)
 	}
 	if e.ErrResp() != nil {
 		t.Errorf("ErrResp() = %v, want nil", e.ErrResp())
@@ -81,7 +89,7 @@ func TestRemoteErrorConstruction(t *testing.T) {
 
 func TestRemoteErrorWithErrResp(t *testing.T) {
 	resp := newRemoteErrorRespFixture()
-	e := NewRemoteUnavailable("user-service.GetUser", WithErrResp(resp))
+	e := NewRemoteUnavailable("UserService.GetUser", WithErrResp(resp))
 	if e.ErrResp() != resp {
 		t.Error("ErrResp() should return the attached RemoteErrorResp")
 	}
@@ -95,7 +103,7 @@ func TestRemoteErrorWithErrResp(t *testing.T) {
 
 func TestRemoteErrorWithCause(t *testing.T) {
 	connErr := errors.New("connection refused")
-	e := NewRemoteUnavailable("user-service.GetUser",
+	e := NewRemoteUnavailable("UserService.GetUser",
 		func(re *RemoteError) { re.cause = connErr })
 	if !errors.Is(e.Cause(), connErr) {
 		t.Error("Cause() should return the transport error")
@@ -121,7 +129,7 @@ func TestRemoteErrorStringFormat(t *testing.T) {
 
 	for _, want := range []string{
 		"code=UNAVAILABLE(14)",
-		"event=user-service.GetUser",
+		"event=UserService.GetUser",
 		"errResp=None",
 	} {
 		if !strings.Contains(got, want) {
@@ -132,13 +140,14 @@ func TestRemoteErrorStringFormat(t *testing.T) {
 
 func TestRemoteErrorStringFormatWithErrResp(t *testing.T) {
 	resp := newRemoteErrorRespFixture()
-	e := NewRemoteUnavailable("user-service.GetUser", WithErrResp(resp))
+	e := NewRemoteUnavailable("UserService.GetUser", WithErrResp(resp))
 	got := e.String()
 
 	for _, want := range []string{
 		"code=UNAVAILABLE(14)",
-		"event=user-service.GetUser",
-		"RemoteErrorResp(status=503, bodyCode=DEGRADED, retryAfter=30s)",
+		"event=UserService.GetUser",
+		"response=Response(status=503",
+		`body={"code":"DEGRADED"}`,
 	} {
 		if !strings.Contains(got, want) {
 			t.Errorf("String() missing %q\ngot: %s", want, got)
@@ -175,6 +184,32 @@ func TestRemoteErrorEventRequired(t *testing.T) {
 	NewRemoteUnavailable("")
 }
 
+func TestRemoteErrorNeitherErrRespNorCausePanics(t *testing.T) {
+	defer func() {
+		if r := recover(); r == nil {
+			t.Error("expected panic when neither errResp nor cause is set")
+		}
+	}()
+	NewRemoteUnavailable("UserService.GetUser")
+}
+
+func TestRemoteErrorBothErrRespAndCauseAllowed(t *testing.T) {
+	resp := newRemoteErrorRespFixture()
+	connErr := errors.New("connection refused")
+	e := NewRemoteUnavailable("UserService.GetUser",
+		WithErrResp(resp),
+		func(re *RemoteError) { re.cause = connErr })
+	if e.ErrResp() != resp {
+		t.Error("ErrResp() should return the attached RemoteErrorResp")
+	}
+	if !errors.Is(e.Cause(), connErr) {
+		t.Error("Cause() should return the transport error")
+	}
+	if !errors.Is(errors.Unwrap(e), connErr) {
+		t.Error("Unwrap() should return the cause")
+	}
+}
+
 // A bare RemoteError carries no AppError; errors.As to *AppError should
 // not succeed via a lone RemoteError.
 func TestRemoteErrorNotAnAppError(t *testing.T) {
@@ -200,7 +235,7 @@ func TestRemoteErrorErrorsAsRecoversRemoteError(t *testing.T) {
 
 func TestRemoteErrorWrappedByAppError(t *testing.T) {
 	resp := newRemoteErrorRespFixture()
-	remoteErr := NewRemoteUnavailable("user-service.GetUser", WithErrResp(resp))
+	remoteErr := NewRemoteUnavailable("UserService.GetUser", WithErrResp(resp))
 	appErr := NewInternal("user.lookup",
 		WithMessage("user lookup failed"), WithCause(remoteErr))
 

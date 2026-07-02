@@ -61,7 +61,10 @@ func TestFlatMessage_UnknownWrapNonColonSeparator_ConservativeFallback(t *testin
 }
 
 func TestFlatMessage_RemoteErrorAtTop(t *testing.T) {
-	e := NewRemoteUnavailable("user-service.GetUser")
+	// WithErrResp sets errResp without setting cause → RemoteError is a leaf
+	// (Unwrap returns nil). FlatMessage sees only the own-message.
+	e := NewRemoteUnavailable("UserService.GetUser",
+		WithErrResp(&RemoteErrorResp{Response: &Response{StatusCode: 503}}))
 	// RemoteError.ownMessage returns e.Message() (like AppError), not the
 	// full debug String(); FlatMessage sees only the human-readable message.
 	want := e.Message()
@@ -75,7 +78,7 @@ func TestFlatMessage_RemoteErrorWithErrRespInChain(t *testing.T) {
 		Response:   &Response{StatusCode: 503},
 		RetryAfter: 30 * time.Second,
 	}
-	remoteErr := NewRemoteUnavailable("user-service.GetUser", WithErrResp(resp))
+	remoteErr := NewRemoteUnavailable("UserService.GetUser", WithErrResp(resp))
 	top := NewInternal("user.lookup", WithMessage("user lookup failed"), WithCause(remoteErr))
 
 	// FlatMessage layers: AppError.Message() -> RemoteError.Message()
@@ -87,7 +90,7 @@ func TestFlatMessage_RemoteErrorWithErrRespInChain(t *testing.T) {
 
 func TestFlatMessage_RemoteErrorWithCauseInChain(t *testing.T) {
 	connErr := errors.New("connection refused")
-	remoteErr := NewRemoteUnavailable("user-service.GetUser",
+	remoteErr := NewRemoteUnavailable("UserService.GetUser",
 		func(re *RemoteError) { re.cause = connErr })
 	top := NewInternal("user.lookup", WithMessage("user lookup failed"), WithCause(remoteErr))
 

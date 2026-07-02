@@ -18,8 +18,11 @@ type RemoteErrorResp struct {
 	// sensitive bodies.
 	Request *Request
 
-	// Response is the captured response. Must be non-nil — its presence is
-	// what distinguishes a remote-response failure from a transport failure.
+	// Response is the captured response. Should be non-nil when a response
+	// was received from the remote service — its presence is what
+	// distinguishes a remote-response failure from a transport failure. May
+	// be nil when the client library returned no response (e.g. a raw
+	// transport error without an HTTP response).
 	Response *Response
 
 	// BodyCode is the remote service's application-level error code, parsed
@@ -38,8 +41,8 @@ type RemoteErrorResp struct {
 }
 
 // StatusCode returns the protocol-level status code of the captured
-// Response. Response is required to be non-nil; if it isn't, this will
-// panic.
+// Response. Callers should guard with a nil check on Response before
+// calling this — a nil Response causes a panic.
 func (r *RemoteErrorResp) StatusCode() int {
 	return r.Response.StatusCode
 }
@@ -47,9 +50,13 @@ func (r *RemoteErrorResp) StatusCode() int {
 // String formats the DTO for debugging. Output is RemoteErrorResp-shaped
 // (not error-shaped) because this is a data record, not an error.
 func (r *RemoteErrorResp) String() string {
+	respStr := "None"
+	if r.Response != nil {
+		respStr = r.Response.String()
+	}
 	return fmt.Sprintf(
-		"RemoteErrorResp(status=%d, bodyCode=%s, retryAfter=%s)",
-		r.StatusCode(), r.BodyCode, r.RetryAfter,
+		"RemoteErrorResp(status=%d, bodyCode=%s, bodyMessage=%s, retryAfter=%s, response=%s)",
+		r.StatusCode(), r.BodyCode, r.BodyMessage, r.RetryAfter, respStr,
 	)
 }
 
@@ -61,8 +68,9 @@ func (r *RemoteErrorResp) String() string {
 //
 //  1. Remote returned a response (any status code):
 //     Parse the response into a RemoteErrorResp, then construct a
-//     RemoteError via factory + WithErrResp. The RemoteError is a leaf
-//     (no cause).
+//     RemoteError via factory + WithErrResp. Optionally also pass a
+//     transport-level cause when both the response body and the
+//     underlying error are relevant.
 //
 //  2. No response received (transport failure):
 //     Construct a RemoteError via factory, passing the raw transport error
@@ -74,7 +82,7 @@ func (r *RemoteErrorResp) String() string {
 //
 // RemoteError is NOT a subtype of AppError. It is the error that a driven
 // adapter returns; the caller at the next layer may choose to wrap it as
-// the cause of a canonical AppError (e.g. NewInternal("user.lookup",
+// the cause of an AppError (e.g. NewInternal("user.lookup",
 // WithCause(remoteErr))) if the failure needs reclassification for its own
 // caller, or propagate it directly.
 //
@@ -94,9 +102,12 @@ func (r *RemoteErrorResp) String() string {
 // Conventions
 //
 //   - event is required (factories panic on empty). Recommended format:
-//     "<service>.<operation>" (e.g. "user-service.GetUser").
-//   - errResp.Response must be non-nil when errResp is set.
-//   - Either errResp or cause is set, not both.
+//     "{namespace}[.{sub-namespace}].{operation}". In the Adapter and
+//     Infrastructure layers this is typically "{service}.{operation}"
+//     (e.g. "UserService.GetUser").
+//   - errResp and cause may both be set, neither is an error. At least one
+//     must be set: setting neither panics at construction time (a RemoteError
+//     without evidence is meaningless).
 type RemoteError struct {
 	code    Code
 	event   string
@@ -112,7 +123,6 @@ type RemoteError struct {
 type RemoteOption func(*RemoteError)
 
 // WithErrResp attaches the parsed remote error response to the RemoteError.
-// When set, the RemoteError has no cause (Unwrap returns nil).
 func WithErrResp(resp *RemoteErrorResp) RemoteOption {
 	return func(e *RemoteError) { e.errResp = resp }
 }
@@ -130,6 +140,9 @@ func newRemoteError(code Code, event string, opts ...RemoteOption) *RemoteError 
 	for _, opt := range opts {
 		opt(e)
 	}
+	if e.errResp == nil && e.cause == nil {
+		panic(fmt.Sprintf("apperror: at least one of errResp or cause must be set (constructing %s)", code.Name()))
+	}
 	if strings.TrimSpace(e.message) == "" {
 		e.message = code.Description()
 	}
@@ -137,7 +150,7 @@ func newRemoteError(code Code, event string, opts ...RemoteOption) *RemoteError 
 	return e
 }
 
-// Code returns the canonical operation status code.
+// Code returns the operation status code.
 func (e *RemoteError) Code() Code { return e.code }
 
 // Event returns the event name for structured logging.
@@ -160,8 +173,8 @@ func (e *RemoteError) Cause() error { return e.cause }
 // RemoteError wraps a transport error instead.
 func (e *RemoteError) ErrResp() *RemoteErrorResp { return e.errResp }
 
-// Unwrap returns the underlying cause. Returns nil when errResp is set
-// (the RemoteError is then a leaf).
+// Unwrap returns the underlying cause. Returns nil when no cause was set
+// (e.g. when only errResp is set, the RemoteError has no cause to unwrap).
 func (e *RemoteError) Unwrap() error { return e.cause }
 
 // StackTrace returns the call stack captured at construction time.
@@ -193,10 +206,7 @@ func (e *RemoteError) String() string {
 	}
 	errRespStr := "None"
 	if e.errResp != nil {
-		errRespStr = fmt.Sprintf(
-			"RemoteErrorResp(status=%d, bodyCode=%s, retryAfter=%s)",
-			e.errResp.StatusCode(), e.errResp.BodyCode, e.errResp.RetryAfter,
-		)
+		errRespStr = e.errResp.String()
 	}
 	return fmt.Sprintf(
 		"RemoteError(code=%s, event=%s, case=%s, message='%s', details=%s, errResp=%s)",

@@ -26,9 +26,9 @@ func FlatMessage(err error) string {
 	return strings.Join(parts, " -> ")
 }
 
-// To recover the canonical view from an error chain, use the standard
-// errors.As(err, &appErr): the canonical *AppError is found first. There is
-// no separate Canonical helper because it would add nothing over errors.As.
+// To find an *AppError in an error chain, use errors.As(err, &appErr).
+// When an AppError wraps a RemoteError as its cause, this recovers the
+// AppError's Code/Case/Details directly — no separate helper needed.
 
 // ownMessage returns the part of err.Error() that originated at THIS
 // layer (excluding any nested cause's message). Per type:

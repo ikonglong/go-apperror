@@ -11,7 +11,6 @@ const (
 	StatusUnauthorized        HTTPStatus = 401
 	StatusForbidden           HTTPStatus = 403
 	StatusNotFound            HTTPStatus = 404
-	StatusMethodNotAllowed    HTTPStatus = 405
 	StatusConflict            HTTPStatus = 409
 	StatusTooManyRequests     HTTPStatus = 429
 	StatusClientClosedRequest HTTPStatus = 499
@@ -27,7 +26,6 @@ var httpStatusName = map[HTTPStatus]string{
 	StatusUnauthorized:        "UNAUTHORIZED",
 	StatusForbidden:           "FORBIDDEN",
 	StatusNotFound:            "NOT_FOUND",
-	StatusMethodNotAllowed:    "METHOD_NOT_ALLOWED",
 	StatusConflict:            "CONFLICT",
 	StatusTooManyRequests:     "TOO_MANY_REQUESTS",
 	StatusClientClosedRequest: "CLIENT_CLOSED_REQUEST",

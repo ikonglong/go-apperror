@@ -2,12 +2,12 @@ package apperror
 
 import "fmt"
 
-// Code is the canonical operation status code for an application error.
+// The canonical error codes for an operation in an application.
 //
-// Sometimes multiple error codes may apply. Services should return the most
-// specific error code that applies. For example, prefer CodeOutOfRange over
-// CodeFailedPrecondition if both codes apply. Similarly prefer CodeNotFound
-// or CodeAlreadyExists over CodeFailedPrecondition.
+// Sometimes multiple error codes may apply. Services should return
+// the most specific error code that applies. For example, prefer
+// `OUT_OF_RANGE` over `FAILED_PRECONDITION` if both codes apply.
+// Similarly prefer `NOT_FOUND` or `ALREADY_EXISTS` over `FAILED_PRECONDITION`.
 type Code int
 
 const (
@@ -21,15 +21,22 @@ const (
 	// HTTP Mapping: 499 Client Closed Request
 	CodeCancelled Code = 1
 
-	// CodeUnknown is for an unknown error.
+	// CodeUnknown is for an unknown error. Use when the error comes from an
+	// unknown error space, or when the underlying API does not return enough
+	// information to classify the failure.
 	// HTTP Mapping: 500 Internal Server Error
 	CodeUnknown Code = 2
 
 	// CodeIllegalInput means that the client specified an illegal input.
+	// Unlike CodeFailedPrecondition, the input is problematic regardless of
+	// the system state (e.g. a malformed identifier, a missing required field).
 	// HTTP Mapping: 400 Bad Request
 	CodeIllegalInput Code = 3
 
-	// CodeTimeout means the deadline expired before the operation could complete.
+	// CodeTimeout means the deadline expired before the operation could
+	// complete. For operations that change system state, this may be returned
+	// even if the operation completed successfully — a response delayed past
+	// the deadline is indistinguishable from a true timeout.
 	// HTTP Mapping: 504 Gateway Timeout
 	CodeTimeout Code = 4
 
@@ -43,11 +50,16 @@ const (
 	CodeAlreadyExists Code = 6
 
 	// CodePermissionDenied means the caller does not have permission to
-	// execute the specified operation.
+	// execute the specified operation. Must not be used when the caller
+	// cannot be identified (use CodeUnauthenticated) or when a resource
+	// is exhausted (use CodeTooManyRequests). This code does not imply
+	// the request is valid or that the target entity exists.
 	// HTTP Mapping: 403 Forbidden
 	CodePermissionDenied Code = 7
 
-	// CodeTooManyRequests means there are too many requests for some resource.
+	// CodeTooManyRequests means some resource has been exhausted — a per-user
+	// quota, a rate limit, a per-resource budget, or even the entire file
+	// system being out of space.
 	// HTTP Mapping: 429 Too Many Requests
 	CodeTooManyRequests Code = 8
 
@@ -61,20 +73,28 @@ const (
 	// HTTP Mapping: 409 Conflict
 	CodeConflict Code = 10
 
-	// CodeOutOfRange means the operation was attempted past the valid range.
+	// CodeOutOfRange means the operation was attempted past the valid range
+	// (e.g. seeking or reading past end-of-file). Unlike CodeIllegalInput,
+	// this indicates a problem that may resolve as system state changes.
+	// When both CodeOutOfRange and CodeFailedPrecondition apply, prefer
+	// CodeOutOfRange — it is the more specific code, and callers that iterate
+	// through a space can detect completion by checking for it.
 	// HTTP Mapping: 400 Bad Request
 	CodeOutOfRange Code = 11
 
-	// CodeUnimplemented means the operation is defined but not implemented.
+	// CodeUnimplemented means the operation is not implemented or is not
+	// supported/enabled in this service.
 	// HTTP Mapping: 501 Not Implemented
 	CodeUnimplemented Code = 12
 
 	// CodeInternal means some invariants expected by the underlying
-	// system have been broken.
+	// system have been broken. This error code is reserved for serious errors.
 	// HTTP Mapping: 500 Internal Server Error
 	CodeInternal Code = 13
 
-	// CodeUnavailable means the service is currently unavailable.
+	// CodeUnavailable means the service is currently unavailable. This is
+	// typically a transient condition; retrying with backoff is reasonable.
+	// Note that retrying is not always safe for non-idempotent operations.
 	// HTTP Mapping: 503 Service Unavailable
 	CodeUnavailable Code = 14
 
@@ -84,16 +104,22 @@ const (
 	CodeIllegalState Code = 15
 
 	// CodeUnauthenticated means the request does not have valid authentication
-	// credentials for the operation.
+	// credentials for the operation. Together with CodeUnauthorized, this
+	// shares HTTP 401; in the reverse direction (HTTP status → Code), 401
+	// resolves to CodeUnauthenticated because the status code alone cannot
+	// distinguish missing credentials from expired ones.
 	// HTTP Mapping: 401 Unauthorized
 	CodeUnauthenticated Code = 16
 
-	// CodeIllegalArg means the arguments passed to an operation within the
-	// program are illegal.
+	// CodeIllegalArg means the arguments passed to a server-internal operation
+	// is illegal.
 	// HTTP Mapping: 500 Internal Server Error
 	CodeIllegalArg Code = 29
 
-	// CodeUnauthorized means a user's authorization expired.
+	// CodeUnauthorized means a user's authorization expired. Like
+	// CodeUnauthenticated, this maps to HTTP 401, but it is not in the
+	// reverse mapping (HTTP status → Code) — the status code alone cannot
+	// distinguish expired credentials from missing ones.
 	// HTTP Mapping: 401 Unauthorized
 	CodeUnauthorized Code = 30
 )

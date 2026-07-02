@@ -1,5 +1,7 @@
 package apperror
 
+import "fmt"
+
 // Request captures an outbound HTTP/RPC request associated with an error.
 // Capture is optional; clients often omit it (or omit just the Body) to
 // avoid leaking sensitive request payloads through logs.
@@ -11,11 +13,17 @@ type Request struct {
 }
 
 // Response captures an HTTP/RPC response associated with an error. Its
-// presence is what distinguishes a remote-response failure (modeled as
-// RemoteErrorResp + RemoteError) from a transport failure (modeled as a
-// plain AppError). See the RemoteError and RemoteErrorResp docs.
+// presence distinguishes a remote-response failure (RemoteError with
+// errResp) from a transport failure (RemoteError with cause — no
+// response received). Both paths produce a RemoteError, not an AppError.
+// See the RemoteError and RemoteErrorResp docs.
 type Response struct {
 	StatusCode int
 	Headers    map[string][]string
 	Body       []byte // raw bytes; parsed views live on RemoteErrorResp fields
+}
+
+// String returns a debug representation. Body is output as a string.
+func (r *Response) String() string {
+	return fmt.Sprintf("Response(status=%d, body=%s)", r.StatusCode, string(r.Body))
 }
