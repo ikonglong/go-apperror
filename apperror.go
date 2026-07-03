@@ -19,6 +19,14 @@ import (
 // one was received; otherwise pass the transport error as cause. See the
 // RemoteError doc.
 //
+// # Fault responsibility
+//
+// AppError's responsibility context is "the application's client calls
+// this application's API". In that context, Client means the caller of
+// this application, and Server means this application. Each Code carries
+// an implicit fault assignment (Client or Server) documented on the Code
+// constant.
+//
 // # Construction
 //
 // Construct an AppError via one of the per-Code factory functions
@@ -34,7 +42,7 @@ import (
 // event field is required because this library is designed to pair with
 // structured logging where event drives log routing/aggregation; making
 // it positional forces the caller to think about it at construction time
-// instead of silently omitting it. message is optional — when not set, it
+// instead of silently omitting it. `message` is optional — when not set, it
 // falls back to Code.Description() so unstructured loggers still get a
 // readable string.
 type AppError struct {

@@ -78,8 +78,8 @@ return apperror.NewUnavailable("UserService.GetUser",
 ```
 
 See the
-[error handling guide](https://github.com/ikonglong/entapp-dev/blob/main/knowledge/error-handling/error-handling.md)
-for the full rationale.
+[error handling guide](https://my.feishu.cn/docx/Md8hdR4aGoPqECx68YscJnJGnec)
+for the full design rationale.
 
 ## Core concepts
 
@@ -105,6 +105,7 @@ For `RemoteError`, three layers of "code" coexist:
 
 ```go
 remoteErr.Code()            // our taxonomy (CodeUnavailable)
+// The following are only valid when ErrResp() != nil (response-received path):
 remoteErr.ErrResp().StatusCode() // protocol: HTTP/RPC status (503)
 remoteErr.ErrResp().BodyCode     // remote app: from Response.Body ("DEGRADED")
 ```
@@ -125,27 +126,27 @@ with names and notes adjusted for the HTTP-oriented use case.
 Table entries omit the `Code` prefix for readability — the actual Go
 identifiers are `CodeOK`, `CodeNotFound`, etc.
 
-| Code | Num | HTTP | Description |
-|---|---|---|---|
-| `OK` | 0 | 200 | Not an error. Exists only for the Code↔HTTP mapping; no factory provided. |
-| `Cancelled` | 1 | 499 | Operation was cancelled, typically by the caller (context cancelled, client disconnected). |
-| `Unknown` | 2 | 500 | Unknown error; classification information is missing or the failure came from an unknown error space. |
-| `IllegalInput` | 3 | 400 | Client supplied illegal input (malformed field, missing required value). gRPC equivalent: `INVALID_ARGUMENT`. |
-| `Timeout` | 4 | 504 | Deadline expired before the operation could complete. For state-changing operations, may be returned even when the operation later succeeds. gRPC equivalent: `DEADLINE_EXCEEDED`. |
-| `NotFound` | 5 | 404 | A requested entity was not found. |
-| `AlreadyExists` | 6 | 409 | The entity the client attempted to create already exists. |
-| `PermissionDenied` | 7 | 403 | Caller is identified but lacks permission for this operation. Must not be used when the caller cannot be identified — use `Unauthenticated` instead. |
-| `TooManyRequests` | 8 | 429 | A resource has been exhausted: per-user quota, rate limit, per-resource budget. gRPC equivalent: `RESOURCE_EXHAUSTED`. |
-| `FailedPrecondition` | 9 | 400 | System is not in the state required for the operation (e.g. non-empty `rmdir`). |
-| `Conflict` | 10 | 409 | Concurrent operations conflicted (optimistic-locking version mismatch, transaction abort). gRPC equivalent: `ABORTED`. |
-| `OutOfRange` | 11 | 400 | Operation attempted past a valid range (e.g. read past end of stream). |
-| `Unimplemented` | 12 | 501 | Operation is defined but not implemented in this service/version. |
-| `Internal` | 13 | 500 | An invariant expected by the underlying system has been broken. Reserved for serious internal errors. |
-| `Unavailable` | 14 | 503 | Service is currently unavailable; typically transient — retry with backoff is reasonable (not always safe for non-idempotent ops). |
-| `IllegalState` | 15 | 500 | Illegal/corrupt data in our datastore, unrecoverable data loss. Roughly gRPC's `DATA_LOSS`, slightly broader. |
-| `Unauthenticated` | 16 | 401 | Request lacks valid authentication credentials for the operation. |
-| `IllegalArg` | 29 | 500 | Illegal arguments passed *within our own code's layers* — a programmer-error contract violation. |
-| `Unauthorized` | 30 | 401 | Credentials were valid but the session/token has expired; re-authentication is needed. |
+| Code | Num | HTTP | Fault | Description |
+|---|---|---|---|---|---|
+| `OK` | 0 | 200 | — | Not an error. Exists only for the Code↔HTTP mapping; no factory provided. |
+| `Cancelled` | 1 | 499 | Client | Operation was cancelled, typically by the caller (context cancelled, client disconnected). |
+| `Unknown` | 2 | 500 | Server | Unknown error; classification information is missing or the failure came from an unknown error space. |
+| `IllegalInput` | 3 | 400 | Client | Client supplied illegal input (malformed field, missing required value). gRPC equivalent: `INVALID_ARGUMENT`. |
+| `Timeout` | 4 | 504 | Server | Deadline expired before the operation could complete. For state-changing operations, may be returned even when the operation later succeeds. gRPC equivalent: `DEADLINE_EXCEEDED`. |
+| `NotFound` | 5 | 404 | Client | A requested entity was not found. |
+| `AlreadyExists` | 6 | 409 | Client | The entity the client attempted to create already exists. |
+| `PermissionDenied` | 7 | 403 | Client | Caller is identified but lacks permission for this operation. Must not be used when the caller cannot be identified — use `Unauthenticated` instead. |
+| `TooManyRequests` | 8 | 429 | Client | A resource has been exhausted: per-user quota, rate limit, per-resource budget. gRPC equivalent: `RESOURCE_EXHAUSTED`. |
+| `FailedPrecondition` | 9 | 400 | Client | System is not in the state required for the operation (e.g. non-empty `rmdir`). |
+| `Conflict` | 10 | 409 | Client | Concurrent operations conflicted (optimistic-locking version mismatch, transaction abort). gRPC equivalent: `ABORTED`. |
+| `OutOfRange` | 11 | 400 | Client | Operation attempted past a valid range (e.g. read past end of stream). |
+| `Unimplemented` | 12 | 501 | Server | Operation is defined but not implemented in this service/version. |
+| `Internal` | 13 | 500 | Server | An invariant expected by the underlying system has been broken. Reserved for serious internal errors. |
+| `Unavailable` | 14 | 503 | Server | Service is currently unavailable; typically transient — retry with backoff is reasonable (not always safe for non-idempotent ops). |
+| `IllegalState` | 15 | 500 | Server | Illegal/corrupt data in our datastore, unrecoverable data loss. Roughly gRPC's `DATA_LOSS`, slightly broader. |
+| `Unauthenticated` | 16 | 401 | Client | Request lacks valid authentication credentials for the operation. |
+| `IllegalArg` | 29 | 500 | Server | Illegal arguments passed *within our own code's layers* — a programmer-error contract violation. |
+| `Unauthorized` | 30 | 401 | Client | Credentials were valid but the session/token has expired; re-authentication is needed. |
 
 ### Choosing between similar codes
 
@@ -208,7 +209,7 @@ Per-layer responsibility:
 | **Interfaces** | Catches errors at the wire boundary, maps `Code` → HTTP status via `apperror.HTTPStatusFor`, sanitizes outgoing payload. |
 
 For per-layer usage guidance, see the
-[error handling guide](https://github.com/ikonglong/entapp-dev/blob/main/knowledge/error-handling/error-handling.md)
+[enterprise error handling guide](https://my.feishu.cn/docx/Md8hdR4aGoPqECx68YscJnJGnec)
 and the type docs on AppError and RemoteError.
 
 ## Package layout
@@ -259,8 +260,8 @@ make help            # list all targets
 
 ## Documentation
 
-- [Error handling guide](https://github.com/ikonglong/entapp-dev/blob/main/knowledge/error-handling/error-handling.md) —
-  per-layer guidance with code recipes and anti-patterns
+- [Enterprise application error handling guide](https://my.feishu.cn/docx/Md8hdR4aGoPqECx68YscJnJGnec) —
+  the authoritative design document for the error model and processing steps
 - [Architecture](https://github.com/ikonglong/entapp-dev/blob/main/knowledge/architecture/architecture.md) —
   the ports-and-adapters style this library is designed to support
 

@@ -14,22 +14,26 @@ const (
 	// CodeOK is not an error code. It exists only for completeness of the
 	// Code <-> HTTP-status mapping; no factory function is provided for it
 	// because constructing an AppError with CodeOK would be a contradiction.
+	// Fault: —
 	// HTTP Mapping: 200 OK
 	CodeOK Code = 0
 
 	// CodeCancelled means the operation was cancelled, typically by the caller.
+	// Fault: Client
 	// HTTP Mapping: 499 Client Closed Request
 	CodeCancelled Code = 1
 
 	// CodeUnknown is for an unknown error. Use when the error comes from an
 	// unknown error space, or when the underlying API does not return enough
 	// information to classify the failure.
+	// Fault: Server
 	// HTTP Mapping: 500 Internal Server Error
 	CodeUnknown Code = 2
 
 	// CodeIllegalInput means that the client specified an illegal input.
 	// Unlike CodeFailedPrecondition, the input is problematic regardless of
 	// the system state (e.g. a malformed identifier, a missing required field).
+	// Fault: Client
 	// HTTP Mapping: 400 Bad Request
 	CodeIllegalInput Code = 3
 
@@ -37,15 +41,18 @@ const (
 	// complete. For operations that change system state, this may be returned
 	// even if the operation completed successfully — a response delayed past
 	// the deadline is indistinguishable from a true timeout.
+	// Fault: Server
 	// HTTP Mapping: 504 Gateway Timeout
 	CodeTimeout Code = 4
 
 	// CodeNotFound means that some requested entity was not found.
+	// Fault: Client
 	// HTTP Mapping: 404 Not Found
 	CodeNotFound Code = 5
 
 	// CodeAlreadyExists means that the entity that the client attempted to
 	// create already exists.
+	// Fault: Client
 	// HTTP Mapping: 409 Conflict
 	CodeAlreadyExists Code = 6
 
@@ -54,22 +61,26 @@ const (
 	// cannot be identified (use CodeUnauthenticated) or when a resource
 	// is exhausted (use CodeTooManyRequests). This code does not imply
 	// the request is valid or that the target entity exists.
+	// Fault: Client
 	// HTTP Mapping: 403 Forbidden
 	CodePermissionDenied Code = 7
 
 	// CodeTooManyRequests means some resource has been exhausted — a per-user
 	// quota, a rate limit, a per-resource budget, or even the entire file
 	// system being out of space.
+	// Fault: Client
 	// HTTP Mapping: 429 Too Many Requests
 	CodeTooManyRequests Code = 8
 
 	// CodeFailedPrecondition means the operation was rejected because the
 	// system is not in a state required for the operation's execution.
+	// Fault: Client
 	// HTTP Mapping: 400 Bad Request
 	CodeFailedPrecondition Code = 9
 
 	// CodeConflict means there were conflicts between concurrent operation
 	// requests.
+	// Fault: Client
 	// HTTP Mapping: 409 Conflict
 	CodeConflict Code = 10
 
@@ -79,27 +90,32 @@ const (
 	// When both CodeOutOfRange and CodeFailedPrecondition apply, prefer
 	// CodeOutOfRange — it is the more specific code, and callers that iterate
 	// through a space can detect completion by checking for it.
+	// Fault: Client
 	// HTTP Mapping: 400 Bad Request
 	CodeOutOfRange Code = 11
 
 	// CodeUnimplemented means the operation is not implemented or is not
 	// supported/enabled in this service.
+	// Fault: Server
 	// HTTP Mapping: 501 Not Implemented
 	CodeUnimplemented Code = 12
 
 	// CodeInternal means some invariants expected by the underlying
 	// system have been broken. This error code is reserved for serious errors.
+	// Fault: Server
 	// HTTP Mapping: 500 Internal Server Error
 	CodeInternal Code = 13
 
 	// CodeUnavailable means the service is currently unavailable. This is
 	// typically a transient condition; retrying with backoff is reasonable.
 	// Note that retrying is not always safe for non-idempotent operations.
+	// Fault: Server
 	// HTTP Mapping: 503 Service Unavailable
 	CodeUnavailable Code = 14
 
 	// CodeIllegalState means illegal data found in datastore, unrecoverable
 	// data loss or corruption and so on.
+	// Fault: Server
 	// HTTP Mapping: 500 Internal Server Error
 	CodeIllegalState Code = 15
 
@@ -108,11 +124,13 @@ const (
 	// shares HTTP 401; in the reverse direction (HTTP status → Code), 401
 	// resolves to CodeUnauthenticated because the status code alone cannot
 	// distinguish missing credentials from expired ones.
+	// Fault: Client
 	// HTTP Mapping: 401 Unauthorized
 	CodeUnauthenticated Code = 16
 
 	// CodeIllegalArg means the arguments passed to a server-internal operation
 	// is illegal.
+	// Fault: Server
 	// HTTP Mapping: 500 Internal Server Error
 	CodeIllegalArg Code = 29
 
@@ -120,6 +138,7 @@ const (
 	// CodeUnauthenticated, this maps to HTTP 401, but it is not in the
 	// reverse mapping (HTTP status → Code) — the status code alone cannot
 	// distinguish expired credentials from missing ones.
+	// Fault: Client
 	// HTTP Mapping: 401 Unauthorized
 	CodeUnauthorized Code = 30
 )

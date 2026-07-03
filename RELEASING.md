@@ -42,8 +42,8 @@ Under SemVer, major version `0` means the public API is still settling and
 *may* change at any time. The practical convention this repo uses while on
 `0.y.z`:
 
-- **breaking change → bump the minor** (`0.3.1` → `0.4.0`)
-- **feature or fix → bump the patch** (`0.3.1` → `0.3.2`)
+- **breaking change → bump the minor** (`0.1.0` → `0.2.0`)
+- **feature or fix → bump the patch** (`0.1.0` → `0.1.1`)
 
 Be aware of the tooling consequence: for a v0 module, `go get -u` will pull
 the latest `0.x` it can find, **including a breaking `0.minor` bump**,
@@ -153,32 +153,26 @@ the published, checksum-verified version.
 
 ---
 
-## 3. Changelog (recommended, not yet adopted)
+## 3. Changelog
 
-There is no `CHANGELOG.md` yet. Two viable approaches when you want one:
-
-- **Hand-written**, in [Keep a Changelog](https://keepachangelog.com)
-  format — full editorial control.
-- **Generated** from the Conventional Commits history with a tool like
-  `git-cliff` or `release-please` — low effort, and the commit discipline
-  to support it is already in place.
-
-Either way, group entries under the version and call out **Breaking
-changes** first.
+The project maintains a [CHANGELOG.md](./CHANGELOG.md) in
+[Keep a Changelog](https://keepachangelog.com) format. Update it as
+part of every release — add a new `## [version] — YYYY-MM-DD` section
+at the top. Group entries under **Added**, **Changed**, **Removed**,
+and **Fixed**. Call out **Breaking changes** first.
 
 ---
 
 ## 4. First-release recommendation (current state)
 
-The module is still **untagged** — consumers resolve a pseudo-version like
-`v0.0.0-20260518085823-4fc551345f1c`, pinned to a commit. Since that
-baseline, `main` has gained a breaking rename (`refactor!: AddErrCtx →
-AddNote`) and a feature (`feat: stack traces`).
+The module is still **untagged** — consumers resolve a pseudo-version
+pinned to a commit. The [CHANGELOG](./CHANGELOG.md) already documents
+the planned `v0.1.0` baseline.
 
 **Recommended:** cut **`v0.1.0`** now as the first real tag — a clean,
-honest "pre-1.0, API may still move" baseline — and let the `go-app-template`
-production app depend on it. Graduate to **`v1.0.0`** once that app has
-exercised the API for a sprint and you are ready to promise compatibility.
+honest "pre-1.0, API may still move" baseline. Graduate to **`v1.0.0`**
+once the API has been exercised in production and you are ready to
+promise compatibility.
 
 **Alternative:** if you already consider the surface stable and want the
 production app on a 1.x line (so routine `go get -u` can never pull a
@@ -190,8 +184,8 @@ breaking change), tag **`v1.0.0`** directly.
 | `go get -u` safety for consumers | ⚠️ can pull breaking `0.x` minors | ✅ stays within `1.x` |
 | Cost of the next breaking change | minor bump | requires `/v2` path |
 
-Given launch is imminent and the API was just refined (the rename), `v0.1.0`
-now → `v1.0.0` after it settles is the lower-risk path.
+Given the API has been recently refined, `v0.1.0` now → `v1.0.0`
+after it settles is the lower-risk path.
 
 ---
 

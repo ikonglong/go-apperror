@@ -86,12 +86,24 @@ func (r *RemoteErrorResp) String() string {
 // WithCause(remoteErr))) if the failure needs reclassification for its own
 // caller, or propagate it directly.
 //
+// # Fault responsibility
+//
+// RemoteError's responsibility context is "this application calls a remote
+// service". In that context, Client means this application and Server means
+// the remote service. Note that this is a different context from AppError's
+// (where Server is this application). When Core wraps a RemoteError into an
+// AppError, it re-judges fault from the application's own API perspective —
+// a Server-fault remote error (e.g. the database is down) typically becomes
+// a Server-fault AppError (the client cannot fix it), while a Client-fault
+// remote error may stay Client-fault or be reclassified depending on the
+// parameter's origin.
+//
 // # Three views of one error
 //
 // Together RemoteError and its errResp expose three layers:
 //
-//   - Canonical (RemoteError.Code(), .Message(), etc.) — our normalised
-//     taxonomy. Use for retry / circuit breaker / log aggregation keys.
+//   - Taxonomy (RemoteError.Code(), .Message(), etc.) — our normalised
+//     classification. Use for retry / circuit breaker / log aggregation keys.
 //
 //   - Protocol (errResp.StatusCode()) — HTTP/RPC status. Use for retry
 //     decisions that depend on transport class.
@@ -105,8 +117,8 @@ func (r *RemoteErrorResp) String() string {
 //     "{namespace}[.{sub-namespace}].{operation}". In the Adapter and
 //     Infrastructure layers this is typically "{service}.{operation}"
 //     (e.g. "UserService.GetUser").
-//   - errResp and cause may both be set, neither is an error. At least one
-//     must be set: setting neither panics at construction time (a RemoteError
+//   - errResp and cause may both be set. At least one must be set:
+//     constructing a RemoteError with neither panics (a RemoteError
 //     without evidence is meaningless).
 type RemoteError struct {
 	code    Code
