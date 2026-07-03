@@ -127,7 +127,7 @@ Table entries omit the `Code` prefix for readability — the actual Go
 identifiers are `CodeOK`, `CodeNotFound`, etc.
 
 | Code | Num | HTTP | Fault | Description |
-|---|---|---|---|---|---|
+|---|---|---|---|---|
 | `OK` | 0 | 200 | — | Not an error. Exists only for the Code↔HTTP mapping; no factory provided. |
 | `Cancelled` | 1 | 499 | Client | Operation was cancelled, typically by the caller (context cancelled, client disconnected). |
 | `Unknown` | 2 | 500 | Server | Unknown error; classification information is missing or the failure came from an unknown error space. |
