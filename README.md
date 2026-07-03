@@ -68,6 +68,13 @@ remoteErr := apperror.NewRemoteUnavailable("UserService.GetUser",
 return remoteErr
 ```
 
+When no response was received (transport failure), pass the raw error as cause:
+
+```go
+return apperror.NewRemoteUnavailable("UserService.GetUser",
+    apperror.RemoteWithCause(connErr))
+```
+
 If the caller at the application layer needs to reclassify the failure,
 it wraps the RemoteError as the cause of an AppError:
 
@@ -87,9 +94,10 @@ for the full design rationale.
 |---|---|
 | `Code` | (required) Category of failure, from a closed standardized taxonomy (NotFound, Unavailable, IllegalInput, ...). Picked via the factory you call. Use for cross-cutting decisions. |
 | `Event` | (required) The operation/event during which the failure occurred (`"user.signup"`). Positional argument to every factory. For structured-log aggregation. Recommended format: `{namespace}[.{sub-namespace}].{operation}`. Empty event panics at construction time. |
-| `Message` | (optional, via `WithMessage`) Human-readable description. Falls back to `Code.Description()` if omitted, so unstructured loggers still see a sensible string. |
-| `Case` | (optional, via `WithCase`) The specific business condition (`"purchase_limit_exceeded"`). Orthogonal to Code. |
-| `Cause` | (optional, via `WithCause`) Underlying error for `errors.Is` / `errors.As` chains. |
+| `Message` | (optional, `WithMessage` / `RemoteWithMessage`) Human-readable description. Falls back to `Code.Description()` if omitted, so unstructured loggers still see a sensible string. |
+| `Details` | (optional, `WithDetails` / `RemoteWithDetails`) Ad-hoc structured data attached to the error for logging or API responses. |
+| `Case` | (optional, `WithCase` / `RemoteWithCase`) The specific business condition (`"purchase_limit_exceeded"`). Orthogonal to Code. |
+| `Cause` | (optional, `WithCause` / `RemoteWithCause`) Underlying error for `errors.Is` / `errors.As` chains. |
 
 **When to define a Case.** Most errors don't need one — `Code` already
 tells callers what category of failure happened. Reach for `Case` only
@@ -205,7 +213,7 @@ Per-layer responsibility:
 |---|---|
 | **Domain** | Constructs `AppError` for domain failures (NotFound, FailedPrecondition, OutOfRange, IllegalState). Knows nothing about HTTP/RPC. |
 | **Application** | Propagates errors from below, may add context via `AddNote`, may construct use-case-level `AppError` (e.g. AlreadyExists for a duplicate signup). |
-| **Driven adapter** | Owns translation of remote-service errors. Parses the response into a `RemoteErrorResp` DTO when the server responded, then constructs a `RemoteError` via factory + `WithErrResp`; when no response was received (or when the client library returns an opaque error), passes the raw transport error as cause via an inline closure. In all cases the adapter returns a `*RemoteError`. |
+| **Driven adapter** | Owns translation of remote-service errors. Parses the response into a `RemoteErrorResp` DTO when the server responded, then constructs a `RemoteError` via factory + `WithErrResp`; when no response was received (or when the client library returns an opaque error), passes the raw transport error as cause via `RemoteWithCause`. In all cases the adapter returns a `*RemoteError`. |
 | **Interfaces** | Catches errors at the wire boundary, maps `Code` → HTTP status via `apperror.HTTPStatusFor`, sanitizes outgoing payload. |
 
 For per-layer usage guidance, see the

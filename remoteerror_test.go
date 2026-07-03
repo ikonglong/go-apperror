@@ -65,7 +65,7 @@ func newRemoteErrorFixture(opts ...RemoteOption) *RemoteError {
 	// Default to a sentinel cause so that callers who don't set errResp or
 	// cause still satisfy the "at least one must be set" constructor rule.
 	return NewRemoteUnavailable("UserService.GetUser",
-		append([]RemoteOption{func(re *RemoteError) { re.cause = errSentinel }}, opts...)...)
+		append([]RemoteOption{RemoteWithCause(errSentinel)}, opts...)...)
 }
 
 func TestRemoteErrorConstruction(t *testing.T) {
@@ -104,7 +104,7 @@ func TestRemoteErrorWithErrResp(t *testing.T) {
 func TestRemoteErrorWithCause(t *testing.T) {
 	connErr := errors.New("connection refused")
 	e := NewRemoteUnavailable("UserService.GetUser",
-		func(re *RemoteError) { re.cause = connErr })
+		RemoteWithCause(connErr))
 	if !errors.Is(e.Cause(), connErr) {
 		t.Error("Cause() should return the transport error")
 	}
@@ -198,7 +198,7 @@ func TestRemoteErrorBothErrRespAndCauseAllowed(t *testing.T) {
 	connErr := errors.New("connection refused")
 	e := NewRemoteUnavailable("UserService.GetUser",
 		WithErrResp(resp),
-		func(re *RemoteError) { re.cause = connErr })
+		RemoteWithCause(connErr))
 	if e.ErrResp() != resp {
 		t.Error("ErrResp() should return the attached RemoteErrorResp")
 	}

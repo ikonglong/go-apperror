@@ -74,9 +74,9 @@ func (r *RemoteErrorResp) String() string {
 //
 //  2. No response received (transport failure):
 //     Construct a RemoteError via factory, passing the raw transport error
-//     as cause via an inline RemoteOption closure:
+//     as cause via RemoteWithCause:
 //
-//     NewRemoteUnavailable("svc.op", func(re *RemoteError) { re.cause = connErr })
+//     NewRemoteUnavailable("svc.op", RemoteWithCause(connErr))
 //
 // # Relationship to AppError
 //
@@ -137,6 +137,28 @@ type RemoteOption func(*RemoteError)
 // WithErrResp attaches the parsed remote error response to the RemoteError.
 func WithErrResp(resp *RemoteErrorResp) RemoteOption {
 	return func(e *RemoteError) { e.errResp = resp }
+}
+
+// RemoteWithMessage attaches a human-readable message to the RemoteError.
+// Optional — when not provided, falls back to Code.Description().
+func RemoteWithMessage(msg string) RemoteOption {
+	return func(e *RemoteError) { e.message = msg }
+}
+
+// RemoteWithCase attaches a Case to the RemoteError. Optional.
+func RemoteWithCase(c Case) RemoteOption {
+	return func(e *RemoteError) { e.caseVal = c }
+}
+
+// RemoteWithDetails attaches ad-hoc structured details to the RemoteError.
+func RemoteWithDetails(d any) RemoteOption {
+	return func(e *RemoteError) { e.details = d }
+}
+
+// RemoteWithCause sets the underlying cause of the RemoteError. When set,
+// Unwrap returns this cause, placing the RemoteError in an errors.Is/As chain.
+func RemoteWithCause(err error) RemoteOption {
+	return func(e *RemoteError) { e.cause = err }
 }
 
 // newRemoteError is the internal shared constructor used by the per-Code

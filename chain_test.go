@@ -91,7 +91,7 @@ func TestFlatMessage_RemoteErrorWithErrRespInChain(t *testing.T) {
 func TestFlatMessage_RemoteErrorWithCauseInChain(t *testing.T) {
 	connErr := errors.New("connection refused")
 	remoteErr := NewRemoteUnavailable("UserService.GetUser",
-		func(re *RemoteError) { re.cause = connErr })
+		RemoteWithCause(connErr))
 	top := NewInternal("user.lookup", WithMessage("user lookup failed"), WithCause(remoteErr))
 
 	// Chain: AppError -> RemoteError -> connErr

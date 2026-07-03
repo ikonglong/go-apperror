@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.2] — 2026-07-04
+
+### Added
+
+- `RemoteWithMessage`, `RemoteWithCase`, `RemoteWithDetails`, and
+  `RemoteWithCause` option constructors for `RemoteError`, matching the
+  option surface of `AppError`. Inline `RemoteOption` closures still work
+  but are no longer necessary for common cases.
+
+### Changed
+
+- RemoteError construction doc: inline closure examples replaced with
+  `RemoteWithCause`.
+- README: added `Details` row to Core concepts table; option names now
+  show both `WithXxx` and `RemoteWithXxx` forms.
+- README RemoteError quick-start: added transport-failure example using
+  `RemoteWithCause`.
+
 ## [0.1.1] — 2026-07-04
 
 Documentation improvements aligned with the
@@ -19,7 +37,6 @@ Documentation improvements aligned with the
 - `# Fault responsibility` sections to the `AppError` and `RemoteError`
   type docs, explaining the two responsibility contexts (app-as-server
   vs. app-as-client) and how they relate.
-
 ### Changed
 
 - README guide links now point to the authoritative Feishu design document.
@@ -29,7 +46,6 @@ Documentation improvements aligned with the
   error" phrasing.
 - RELEASING.md: updated §3 to reflect the existing `CHANGELOG.md`; updated
   §4 status and version examples.
-
 ### Fixed
 
 - `message` field reference in `apperror.go` constructor doc now uses
